@@ -1,0 +1,133 @@
+// Prisma schema — https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TradeIntentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model TradeIntent {
+  id                       String   @id @default(uuid())
+
+  userAddress              String
+  agentAddress             String
+  vaultAddress             String
+  chainId                  Int
+
+  tokenIn                  String
+  tokenOut                 String
+  amountIn                 BigInt
+  minAmountOut             BigInt
+  deadline                 DateTime
+
+  maxPremium                BigInt
+  maxCoverage               Decimal
+  requestedCoverageDuration BigInt // in seconds
+
+  signature                String
+
+  status                   TradeIntentStatus @default(PENDING)
+
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  riskAssessments          RiskAssessment?
+  tradeConfirmation        TradeConfirmation?
+
+  @@index([userAddress])
+  @@index([agentAddress])
+  @@index([vaultAddress])
+  @@index([status])
+}
+
+model RiskAssessment {
+  id               String   @id @default(uuid())
+
+  intentId         String @unique
+  intent           TradeIntent @relation(fields: [intentId], references: [id])
+
+  canBeInsured     Boolean
+  tradeAllowed     Boolean
+
+  riskScore        Decimal
+  premium          BigInt
+  coverageAmount   Decimal
+  coverageDuration BigInt // in seconds
+
+  signature        String
+  assessedAt       DateTime
+  expiresAt        DateTime
+
+  assessmentHash   String
+
+  createdAt        DateTime @default(now())
+
+  @@index([intentId])
+  @@index([expiresAt])
+}
+
+model TradeConfirmation {
+  id String @id @default(uuid())
+
+  intentId String @unique
+  intent   TradeIntent @relation(fields: [intentId], references: [id])
+
+  transactionHash String
+  chainId         Int
+
+  tokenIn         String
+  tokenOut        String
+
+  amountIn        BigInt
+  amountOut       BigInt
+
+  signature       String
+  executedAt DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id String @id @default(uuid())
+
+  address String @unique
+
+  agents Agent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Agent {
+  id String @id
+
+  userId String @unique
+  user   User @relation(fields: [userId], references: [id])
+
+  vaultAddress String
+
+  address String @unique
+  privateKey String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Nonce {
+  id String @id @default(uuid())
+
+  address String @unique
+  nonce   String
+
+  createdAt DateTime @default(now())
+  expiresAt DateTime @default(dbgenerated("(now() + interval '5 minutes')")) @db.Timestamptz
+}

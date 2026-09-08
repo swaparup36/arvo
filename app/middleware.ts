@@ -116,6 +116,55 @@ function tradeIndentMiddleware(request: NextRequest) {
     return NextResponse.next();
 }
 
+async function mcpAuthMiddleware(request: NextRequest, response: NextResponse) {
+    response.headers.set(
+        "WWW-Authenticate",
+        `Bearer resource_metadata="${env.BASE_MCP_URL}/.well-known/oauth-protected-resource"`
+    );
+
+    const authHeader = request.headers.get("authorization");
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return NextResponse.json(
+            { error: "unauthorized" },
+            { status: 401 }
+        );
+    }
+
+    const token = authHeader.slice(7).trim();
+
+    if (!token || !await redis.hget("accessTokens", token)) {
+        return NextResponse.json(
+            { error: "unauthorized" },
+            { status: 401 }
+        );
+    }
+
+    const tokenDataJson = await redis.hget("accessTokens", token);
+    const tokenData = tokenDataJson ? JSON.parse(tokenDataJson) : null;
+
+    if (Date.now() > tokenData.expiresAt) {
+        await redis.hdel("accessTokens", token);
+        return NextResponse.json(
+            { error: "unauthorized" },
+            { status: 401 }
+        );
+    }
+
+    const decoded = verifyToken(tokenData.apiToken);
+
+    if (!decoded) {
+        return NextResponse.json(
+            { error: "unauthorized" },
+            { status: 401 }
+        );
+    }
+
+    request.headers.set("x-api-token", tokenData.apiToken);
+
+    return NextResponse.next();
+};
+
 export function middleware(request: NextRequest, response: NextResponse) {
     const path = request.nextUrl.pathname;
 
@@ -129,6 +178,10 @@ export function middleware(request: NextRequest, response: NextResponse) {
 
     if (path.startsWith("/api/trade-indent")) {
         return tradeIndentMiddleware(request);
+    }
+
+    if (path.startsWith("/api/mcp/resources")) {
+        return mcpAuthMiddleware(request, response);
     }
 
     return NextResponse.next();

@@ -26,10 +26,10 @@ model TradeIntent {
   tokenOut                 String
   amountIn                 BigInt
   minAmountOut             BigInt
-  deadline                 DateTime
+  deadline                 DateTime // date and time by which the trade must be executed
 
   maxPremium                BigInt
-  maxCoverage               Decimal
+  maxCoverage               Decimal // in percentage (0-100)
   requestedCoverageDuration BigInt // in seconds
 
   signature                String
@@ -53,9 +53,6 @@ model RiskAssessment {
 
   intentId         String @unique
   intent           TradeIntent @relation(fields: [intentId], references: [id])
-
-  canBeInsured     Boolean
-  tradeAllowed     Boolean
 
   riskScore        Decimal
   premium          BigInt

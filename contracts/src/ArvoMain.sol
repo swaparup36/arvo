@@ -2,10 +2,7 @@
 pragma solidity ^0.8.13;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {
-    SafeERC20
-} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 using SafeERC20 for IERC20;
@@ -24,7 +21,6 @@ struct TradeIntent {
     address userAddress;
     address agentAddress;
     address vaultAddress;
-    uint32 chainId;
 
     uint256 tokenIn;
     uint256 tokenOut;
@@ -66,11 +62,9 @@ struct TradeConfirmation {
     string intentId;
 
     string transactionHash; // hash of the transaction
-    uint32 chainId;
 
     address tokenIn; // address of the token being sold
     address tokenOut; // address of the token being bought
-
     uint256 amountIn; // amount of tokenIn being sold
     uint256 amountOut; // amount of tokenOut being bought
 
@@ -109,6 +103,15 @@ struct Position {
 
     uint256 createdAt;
 }
+
+// events
+event SubmitTradeIntent(string id, address indexed userAddress, address indexed agentAddress, address indexed vaultAddress);
+event SubmitRiskAssessment(string id, string indexed intentId, uint256 riskScore, uint256 premium, uint256 coverageAmount, uint256 coverageDuration);
+event SubmitTradeConfirmation(string id, string indexed intentId, string indexed transactionHash,  address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
+event InsuranceIssued(string indexed insuranceId, string indexed tradeIntentId, string indexed riskAssesmentId, string tradeConfirmationId, uint256 premium, uint256 coverageAmount, uint256 coverageDuration);
+event PositionCreated(string indexed positionId, string indexed insuranceId, address indexed vaultAddress, address tokenAddress, uint256 amount);
+event InsuranceInvalidated(string indexed insuranceId, string indexed tradeIntentId, string indexed riskAssesmentId, string tradeConfirmationId);
+event PositionDeactivated(string indexed positionId, string indexed insuranceId, address indexed vaultAddress, address tokenAddress, uint256 amount);
 
 contract ArvoMain is Ownable, AccessControl {
     // tradeintent id to TradeIntent mapping
@@ -206,19 +209,23 @@ contract ArvoMain is Ownable, AccessControl {
         insuranceToPosition[insurance.id] = position;
 
         // TODO: Lock the asset on the vault contract - pass - ok / fail - invalidate the insurance and position
+
+        emit PositionCreated(position.id, position.insuranceId, position.vaultAddress, position.tokenAddress, position.amount);
+        emit InsuranceIssued(insurance.id, insurance.tradeIntentId, insurance.riskAssesmentId, insurance.tradeConfirmationId, insurance.premium, insurance.coverageAmount, insurance.coverageDuration);
     }
 
     // submit a trade intent - can be submitted by the owner only
     function submitTradeIntent(TradeIntent memory intent) public onlyOwner {
         tradeIntents[intent.id] = intent;
+        emit SubmitTradeIntent(intent.id, intent.userAddress, intent.agentAddress, intent.vaultAddress);
     }
 
     // submit a risk assesment - can be submitted by the risk engine only
     function submitRiskAssessment(RiskAssessment memory assessment) public {
         riskAssessments[assessment.id] = assessment;
+        emit SubmitRiskAssessment(assessment.id, tradeIntentId, assessment.riskScore, assessment.premium, assessment.coverageAmount, assessment.coverageDuration);
 
         string tradeIntentId = assessment.intentId;
-
         // check if the trade intent is evaluable
         if (_isTradeIntentEvaluatable(tradeIntentId)) {
             evaluateTradeIntent(tradeIntentId);
@@ -228,6 +235,7 @@ contract ArvoMain is Ownable, AccessControl {
     // submit a trade confirmation - can be submitted by the executor only
     function submitTradeConfirmation(TradeConfirmation memory confirmation) public {
         tradeConfirmations[confirmation.id] = confirmation;
+        emit SubmitTradeConfirmation(confirmation.id, confirmation.intentId, confirmation.transactionHash, confirmation.tokenIn, confirmation.tokenOut, confirmation.amountIn, confirmation.amountOut);
 
         string tradeIntentId = confirmation.intentId;
 
@@ -254,6 +262,9 @@ contract ArvoMain is Ownable, AccessControl {
         insuranceToPosition[insuranceId].isActive = false;
 
         // TODO: Unlock the asset on the vault contract - pass - ok / fail - revert the insurance and position to valid and active respectively
+
+        emit InsuranceInvalidated(insurance.id, insurance.tradeIntentId, insurance.riskAssesmentId, insurance.tradeConfirmationId);
+        emit PositionDeactivated(insuranceToPosition[insuranceId].id, insurance.id, insurance
     }
 
     // all the getters for the mappings

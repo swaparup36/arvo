@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getTradeConfirmation } from "@/utils/arvoMain";
 
 // GET (fetch trade confirmation by trade intent ID)
-export async function GET(req: Request) {
+export async function GET(req: Request, { params }: { params: Promise<{ trade_intent_id: string }> }) {
     try {
-        const { searchParams } = new URL(req.url);
-        const tradeIntentId = searchParams.get("trade_intent_id");
+        const { trade_intent_id: tradeIntentId } = await params;
         
         if (!tradeIntentId) {
             return NextResponse.json({ error: "Missing trade intent ID" }, { status: 400 });
@@ -25,6 +25,13 @@ export async function GET(req: Request) {
 
         if (!tradeConfirmation) {
             return NextResponse.json({ error: "Trade confirmation not found" }, { status: 404 });
+        }
+
+        // check if the trade confirmation exists on chain
+        const onChainTradeConfirmation = await getTradeConfirmation(tradeConfirmation.intentId, tradeConfirmation.chainId);
+
+        if (!onChainTradeConfirmation) {
+            return NextResponse.json({ error: "Trade confirmation not found on chain" }, { status: 404 });
         }
 
         return NextResponse.json({ tradeIntent, tradeConfirmation }, { status: 200 });

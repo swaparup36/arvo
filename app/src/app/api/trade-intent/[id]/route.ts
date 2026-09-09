@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getTradeIntent } from "@/utils/arvoMain";
 
 // GET (fetch trade intent by Id)
-export async function GET(req: Request) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
-        const { searchParams } = new URL(req.url);
-        const tradeIntentId = searchParams.get("id");
+        const { id: tradeIntentId } = await params;
         
         if (!tradeIntentId) {
             return NextResponse.json({ error: "Missing trade intent ID" }, { status: 400 });
@@ -17,6 +17,12 @@ export async function GET(req: Request) {
 
         if (!tradeIntent) {
             return NextResponse.json({ error: "Trade intent not found" }, { status: 404 });
+        }
+
+        // check if the trade intent exists onchain
+        const onChainIntent = await getTradeIntent(tradeIntent.id, tradeIntent.chainId);
+        if (!onChainIntent) {
+            return NextResponse.json({ error: "Trade intent not found onchain" }, { status: 404 });
         }
 
         return NextResponse.json({ tradeIntent }, { status: 200 });

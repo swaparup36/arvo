@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { VerifyWalletRequest } from "@/types/schema";
+import { VerifyWalletRequest } from "../../../../types/schema";
 import { createToken } from "../../../../../middleware";
 import { ethers } from "ethers";
 

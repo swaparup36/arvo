@@ -6,7 +6,7 @@ import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { verifyToken } from "../../../../../middleware";
 import { ethers } from "ethers";
-import { CreateTradeIntentRequest } from "@/types/schema";
+import { CreateTradeIntentRequest } from "../../../../types/schema";
 
 function createServer(apiToken: string) {
   const server = new McpServer({
@@ -21,18 +21,18 @@ function createServer(apiToken: string) {
         title: "Post Trade Intent",
         description: "Post a trade intent to the MCP server",
         inputSchema: {
-          chainId: z.number(),
-          tokenIn: z.string(),
-          tokenOut: z.string(),
-          amountIn: z.number(),
-          minAmountOut: z.number(),
-          deadline: z.string(),
-          maxPremium: z.number(),
-          maxCoverage: z.number(),
-          requestedCoverageDuration: z.bigint(),
+          chainId: z.number().describe("Chain ID of the blockchain network"),
+          tokenIn: z.string().describe("Address of the input token for swap"),
+          tokenOut: z.string().describe("Address of the output token for swap"),
+          amountIn: z.number().describe("Amount of input token to swap"),
+          minAmountOut: z.number().describe("Minimum amount of output token to receive"),
+          deadline: z.string().describe("Deadline for the trade in ISO 8601 format"),
+          maxPremium: z.number().describe("Maximum premium to pay for the trade insurance"),
+          minCoverage: z.number().describe("Minimum coverage required for the trade insurance in percentage (1-100)"),
+          minCoverageDuration: z.bigint().describe("Minimum duration of the coverage in seconds"),
         }
     },
-    async ({ chainId, tokenIn, tokenOut, amountIn, minAmountOut, deadline, maxPremium, maxCoverage, requestedCoverageDuration }) => {
+    async ({ chainId, tokenIn, tokenOut, amountIn, minAmountOut, deadline, maxPremium, minCoverage, minCoverageDuration }) => {
       try {
         const decoded = verifyToken(apiToken);
         const { userId, agentId } = decoded as { userId: string; agentId?: string }; 
@@ -64,8 +64,8 @@ function createServer(apiToken: string) {
             minAmountOut, 
             deadline, 
             maxPremium, 
-            maxCoverage, 
-            requestedCoverageDuration
+            minCoverage, 
+            minCoverageDuration
         };
 
         const agentWallet = new ethers.Wallet(agent.privateKey);
@@ -82,8 +82,8 @@ function createServer(apiToken: string) {
             minAmountOut,
             deadline,
             maxPremium,
-            maxCoverage,
-            requestedCoverageDuration,
+            minCoverage,
+            minCoverageDuration,
             signature: signedTradeData
         }
 

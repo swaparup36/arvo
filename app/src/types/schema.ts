@@ -1,3 +1,5 @@
+import { Address } from "viem";
+
 export type CreateTradeIntentRequest = {
     userAddress: string;
     agentAddress: string;
@@ -11,27 +13,55 @@ export type CreateTradeIntentRequest = {
     deadline: string;
 
     maxPremium: number;
-    maxCoverage: number;
-    requestedCoverageDuration: bigint;
+    minCoverage: number;
+    minCoverageDuration: bigint;
 
     signature: string;
+}
+
+export type OnChainSubmitTradeIntentStruct = {
+    id: string;
+    userAddress: Address;
+    agentAddress: Address;
+    vaultAddress: Address;
+    tokenIn: Address;
+    tokenOut: Address;
+    amountIn: bigint;
+    minAmountOut: bigint;
+    deadline: bigint;
+    maxPremium: bigint;
+    minCoverage: number;
+    minCoverageDuration: bigint;
+    signature: string;
+    status: number;
+    createdAt: bigint;
 }
 
 export type CreateRiskReportRequest = {
     intentId: string;
 
-    canBeInsured: boolean;
-    tradeAllowed: boolean;
-
     riskScore: number;
     premium: number;
-    coverageAmount: number;
+    coverage: number;
     coverageDuration: bigint;
 
     signature: string;
     assessedAt: Date;
     expiresAt: Date;
 
+    assessmentHash: string;
+}
+
+export type OnChainSubmitRiskAssessmentStruct = {
+    id: string;
+    intentId: string;
+    riskScore: number; // the risk score of the trade, in percentage (0-100)
+    premium: bigint; // the premium that needs to be paid for the coverage, in wei
+    coverage: number; // the amount of coverage that can be issued for the trade, in percentage (0-100)
+    coverageDuration: bigint; // duration for which the issued coverage can be valid, in seconds
+    signature: string; // signature of the risk assessment, signed by the risk engine's private key
+    assessedAt: bigint;
+    expiresAt: bigint;
     assessmentHash: string;
 }
 
@@ -50,6 +80,19 @@ export type CreateTradeConfirmationRequest = {
     signature: string;
     executedAt: Date;
 }
+
+export type OnChainSubmitTradeConfirmationStruct = {
+  id: string;
+  intentId: string;
+  transactionHash: string;
+  tokenIn: Address;
+  tokenOut: Address;
+  amountIn: bigint;
+  amountOut: bigint;
+  signature: string;
+  executedAt: bigint;
+  createdAt: bigint;
+};
 
 export type VerifyWalletRequest = {
     address: string;

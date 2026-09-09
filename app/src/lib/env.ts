@@ -7,6 +7,9 @@ const schema = z.object({
   CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(60),
   BASE_MCP_URL: z.string().url().default("http://localhost:3000/mcp"),
   BASE_URL: z.string().url().default("http://localhost:3000"),
+  ARVO_MAIN_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  OWNER_PRIVATE_KEY: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
+  SEPOLIA_RPC_URL: z.string().url(),
 });
 
 const parsed = schema.safeParse(process.env);

@@ -3,23 +3,13 @@ pragma solidity ^0.8.13;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {
-    SafeERC20
-} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Errors} from "./libraries/Errors.sol";
+import {IVaultEvents} from "./events/IVaultEvents.sol";
 
-struct TradeExecution {
-    address target;
-    uint256 value;
-    bytes data;
-    address inputToken;
-    uint256 inputAmount;
-    address outputToken;
-    uint256 minOutputAmount;
-    uint256 deadline;
-}
-
-contract Vault is Ownable, AccessControl {
+contract Vault is Ownable, AccessControl, IVaultEvents, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // allow users to name their vault for convinience
@@ -29,14 +19,13 @@ contract Vault is Ownable, AccessControl {
     // RBAC
     bytes32 public constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
     bytes32 public constant ARVO_ROLE = keccak256("ARVO_ROLE");
-    // target whitelist
-    mapping(address => bool) public allowedTargets;
 
     constructor(
+        address _vaultOwner,
         address _executor,
         address _arvoProto,
         string memory _vaultName
-    ) Ownable(msg.sender) {
+    ) Ownable(_vaultOwner) {
         vaultName = _vaultName;
         _grantRole(EXECUTOR_ROLE, _executor);
         _grantRole(ARVO_ROLE, _arvoProto);
@@ -58,6 +47,14 @@ contract Vault is Ownable, AccessControl {
         _;
     }
 
+    modifier checkAmount(uint256 amount) {
+        if (amount == 0) {
+            revert Errors.InvalidAmount();
+        }
+        _;
+    }
+
+    // helper function to get contract balance
     function _getBalance(address asset) internal view returns (uint256) {
         if (asset == address(0)) {
             return address(this).balance;
@@ -66,87 +63,136 @@ contract Vault is Ownable, AccessControl {
         return IERC20(asset).balanceOf(address(this));
     }
 
-    function depositETH() external payable {
-        require(msg.value > 0);
+    // to allow users to check available unlocked balance
+    function availableBalance(address asset) public view returns (uint256) {
+        uint256 balance = _getBalance(asset);
+
+        return balance - lockedAmount[asset];
     }
 
-    function depositToken(address token, uint256 amount) external onlyOwner {
+    // to deposit ETH
+    function depositETH() external payable onlyOwner checkAmount(msg.value) {
+        emit ETHDeposited(owner(), msg.value);
+    }
+
+    // to deposit ERC20 token
+    function depositToken(
+        address token,
+        uint256 amount
+    ) external onlyOwner checkAmount(amount) {
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        emit TokenDeposited(token, amount, msg.sender);
     }
 
-    function receive() external payable {}
+    // to withdraw ETH
+    function withdrawETH(
+        uint256 amount
+    ) external onlyOwner checkAmount(amount) nonReentrant {
+        uint256 available = availableBalance(address(0));
 
-    function withdrawETH(address token, uint256 amount) external onlyOwner {
-        uint256 balance = _getBalance(token);
-        uint256 available = balance - lockedAmount[address(0)];
-
-        require(amount <= available, "Insufficient unlocked balance");
+        if (amount > available) {
+            revert Errors.InsufficientBalance(available);
+        }
 
         (bool success, ) = payable(owner()).call{value: amount}("");
 
-        require(success, "ETH transfer failed");
+        if (!success) {
+            revert Errors.ExecutionFailed();
+        }
+
+        emit ETHWithdrawn(owner(), amount);
     }
 
-    function withdrawToken(address token, uint256 amount) external onlyOwner {
-        uint256 balance = _getBalance(token);
+    // to withdraw ERC20 token
+    function withdrawToken(
+        address token,
+        uint256 amount
+    ) external onlyOwner checkAmount(amount) nonReentrant {
+        uint256 available = availableBalance(token);
 
-        uint256 available = balance - lockedAmount[token];
-
-        require(amount <= available, "Insufficient unlocked balance");
+        if (amount > available) {
+            revert Errors.InsufficientBalance(available);
+        }
 
         IERC20(token).safeTransfer(owner(), amount);
+        emit TokenWithdrawn(token, owner(), amount);
     }
 
-    function lockAsset(address asset, uint256 amount) external onlyArvo {
-        uint256 balance = _getBalance(asset);
+    // to lock an asset
+    function lockAsset(
+        address asset,
+        uint256 amount
+    ) external onlyArvo checkAmount(amount) {
+        uint256 available = availableBalance(asset);
 
-        require(
-            balance >= lockedAmount[asset] + amount,
-            "Insufficient balance"
-        );
+        if (available < amount) {
+            revert Errors.InsufficientBalance(available);
+        }
 
         lockedAmount[asset] += amount;
+        emit AssetLocked(asset, amount);
     }
 
-    function unlockAsset(address asset, uint256 amount) external onlyArvo {
-        require(lockedAmount[asset] >= amount, "Invalid unlock");
+    // to unlock an asset
+    function unlockAsset(
+        address asset,
+        uint256 amount
+    ) external onlyArvo checkAmount(amount) {
+        if (lockedAmount[asset] < amount) {
+            revert Errors.InvalidUnlock(lockedAmount[asset]);
+        }
 
         lockedAmount[asset] -= amount;
+        emit AssetUnlocked(asset, amount);
     }
 
-    // function execute(
-    //     TradeExecution calldata trade
-    // ) external onlyExecutor returns (bytes memory result) {
+    // submit trade txn. on-chain
+    // currently this function assumes that the txn. sent for execution considers the lock amount
+    function execute(
+        address target,
+        uint256 value,
+        bytes calldata data
+    ) external onlyExecutor nonReentrant returns (bytes memory result) {
+        (bool success, bytes memory returnData) = target.call{value: value}(
+            data
+        );
+        if (!success) revert Errors.ExecutionFailed();
 
-    //     require(
-    //     allowedTargets[trade.target],
-    //     "Target not allowed"
-    //     );
+        emit TradeExecuted(target, value, data);
 
-    //     uint256 balance = _getBalance(trade.inputToken);
-    //     uint256 available = balance - lockedAmount[trade.inputToken];
+        return returnData;
+    }
 
-    //     require(
-    //         trade.inputAmount <= available,
-    //         "Insufficient unlocked balance"
-    //     );
-
-    //     (bool success, bytes memory returnData) = trade.target.call{
-    //         value: trade.value
-    //     }(trade.data);
-
-    //     if (!success) {
-    //         revert ExecutionFailed();
-    //     }
-
-    //     return returnData;
-    // }
-
+    // approve spending to router
     function approveToken(
         address token,
         address spender,
         uint256 amount
     ) external onlyExecutor {
+        uint256 available = availableBalance(token);
+
+        if (available < amount) {
+            revert Errors.InsufficientBalance(available);
+        }
+
         IERC20(token).forceApprove(spender, amount);
+        emit SpendApproved(token, spender, amount);
+    }
+
+    // to deduct coverage premium
+    function deductPremium(
+        address to,
+        address usdc,
+        uint256 amount
+    ) external onlyArvo checkAmount(amount) nonReentrant {
+        uint256 available = availableBalance(usdc);
+
+        if (available < amount) {
+            revert Errors.InsufficientBalance(available);
+        }
+
+        IERC20(usdc).safeTransfer(to, amount);
+
+        emit PremiumDeducted(owner(), amount);
     }
 }

@@ -1,5 +1,7 @@
+import { ARVO_BACKEND_URL, TRADE_CONFIRMATION_SECRET } from "./constants.js";
+import { approveTokenOnVault, executeOnVault } from "./onchain-utils/vault.js";
 import { redis } from "./redis.js";
-import type { TradeIntent } from "./types.js";
+import type { CreateTradeConfirmationRequest, TradeIntent } from "./types.js";
 import { getApproveCallData, getRouterAddress, getSwapCallData } from "./utils.js";
 
 async function pipeLine(tradeIntent: TradeIntent) {
@@ -7,7 +9,7 @@ async function pipeLine(tradeIntent: TradeIntent) {
     const swapCallData = await getSwapCallData({
         chainId: tradeIntent.chainId,
         tokenIn: tradeIntent.tokenIn,
-        tokenOut: tradeIntent.tokenIn,
+        tokenOut: tradeIntent.tokenOut,
         amountIn: tradeIntent.amountIn.toString(),
         from: tradeIntent.userAddress,
         origin: tradeIntent.agentAddress,
@@ -17,7 +19,18 @@ async function pipeLine(tradeIntent: TradeIntent) {
     // get the router address from 1inch
     const routerAddress = await getRouterAddress(tradeIntent.chainId);
 
+    const vaultAddress = tradeIntent.vaultAddress;
+    const chainId = tradeIntent.chainId;
+
     // TODO: set the allowance to zero for the router address to spend the tokenIn from the vault address
+    const approveZeroCallData = await approveTokenOnVault(vaultAddress, tradeIntent.tokenIn, routerAddress, 0n, chainId);
+
+    if (!approveZeroCallData.txHash) {
+        console.error("Failed to set allowance to zero on vault");
+        return;
+    }
+
+    console.log("Allowance set to zero on vault with hash:", approveZeroCallData.txHash, ". Proceeding with approval...");
 
     // get the approve call data for the router address to spend the tokenIn from the vault address
     const approveCallData = await getApproveCallData({
@@ -26,10 +39,52 @@ async function pipeLine(tradeIntent: TradeIntent) {
         amount: tradeIntent.amountIn.toString(),
     });
 
-    // TODO: call the execute function on the vault contract for approve
+    const approveTx = await executeOnVault(vaultAddress, routerAddress, 0n, approveCallData, chainId);
 
-    // TODO: call the execute function on the vault contract for swap
+    if (!approveTx.txHash) {
+        console.error("Failed to approve token on vault");
+        return;
+    }
 
+    console.log("Token approved on vault with hash:", approveTx.txHash, ". Proceeding with swap...");
+
+    const swapTx = await executeOnVault(vaultAddress, routerAddress, 0n, swapCallData, chainId);
+
+    if (!swapTx.txHash) {
+        console.error("Failed to execute swap on vault");
+        return;
+    }
+
+    console.log("Swap executed on vault with hash:", swapTx.txHash);
+
+    // send the trade confirmation to backend
+    const tradeConfirmationRequest: CreateTradeConfirmationRequest = {
+        intentId: tradeIntent.id,
+        transactionHash: swapTx.txHash,
+        chainId: tradeIntent.chainId,
+        tokenIn: tradeIntent.tokenIn,
+        tokenOut: tradeIntent.tokenOut,
+        amountIn: tradeIntent.amountIn,
+        amountOut: BigInt(swapCallData.toTokenAmount),
+        signature: tradeIntent.signature,
+        executedAt: new Date(),
+    };
+
+    const response = await fetch(`${ARVO_BACKEND_URL}/api/trade-intent/`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${TRADE_CONFIRMATION_SECRET}`,
+        },
+        body: JSON.stringify(tradeConfirmationRequest),
+    });
+
+    if (!response.ok) {
+        console.error("Failed to send trade confirmation to backend");
+        return;
+    }
+
+    console.log("Trade confirmation sent to backend successfully");
 }
 
 

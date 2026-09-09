@@ -1,4 +1,5 @@
 export type TradeIntent = {
+    id: string;
     userAddress: string;
     agentAddress: string;
     vaultAddress: string;
@@ -9,11 +10,10 @@ export type TradeIntent = {
     minAmountOut: bigint;
     deadline: Date;
     maxPremium: bigint;
-    maxCoverage: number; // in percentage
-    requestedCoverageDuration: bigint; // in seconds
+    minCoverage: number; // in percentage
+    minCoverageDuration: bigint; // in seconds
     signature: string;
     status: string;
-    id: string;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -38,4 +38,20 @@ export type GetApproveDataRequest = {
     chainId: number;
     tokenAddress: string;
     amount: string;
+}
+
+export type CreateTradeConfirmationRequest = {
+    intentId: string;
+
+    transactionHash: string;
+    chainId: number;
+
+    tokenIn: string;
+    tokenOut: string;
+
+    amountIn: bigint;
+    amountOut: bigint;
+
+    signature: string;
+    executedAt: Date;
 }

@@ -26,11 +26,11 @@ model TradeIntent {
   tokenOut                 String
   amountIn                 BigInt
   minAmountOut             BigInt
-  deadline                 DateTime // date and time by which the trade must be executed
 
+  deadline                 DateTime // date and time by which the trade must be executed
   maxPremium                BigInt
-  maxCoverage               Decimal // in percentage (0-100)
-  requestedCoverageDuration BigInt // in seconds
+  minCoverage               Decimal // in percentage (0-100)
+  minCoverageDuration       BigInt // in seconds
 
   signature                String
 
@@ -56,7 +56,7 @@ model RiskAssessment {
 
   riskScore        Decimal
   premium          BigInt
-  coverageAmount   Decimal
+  coverage         Decimal
   coverageDuration BigInt // in seconds
 
   signature        String
@@ -82,7 +82,6 @@ model TradeConfirmation {
 
   tokenIn         String
   tokenOut        String
-
   amountIn        BigInt
   amountOut       BigInt
 

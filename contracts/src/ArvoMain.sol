@@ -6,6 +6,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import {IVault} from "./interfaces/IVault.sol";
 
 using SafeERC20 for IERC20;
 
@@ -338,9 +339,18 @@ contract ArvoMain is Ownable, EIP712 {
 
         insuranceToPosition[insurance.id] = position;
 
-        // TODO: Lock the asset on the vault contract - pass - ok / fail - invalidate the insurance and position
+        // Lock the position asset in the user's vault
+        IVault(intent.vaultAddress).lockAsset(
+            intent.tokenOut,
+            confirmation.amountOut
+        );
 
-        // TODO: Transfer the premium from the vault to this contract - pass - ok / fail - invalidate the insurance and position
+        // Transfer/deduct the premium from the vault to ArvoMain
+        IVault(intent.vaultAddress).deductPremium(
+            address(this),
+            premiumTokenAddress,
+            assessment.premium
+        );
 
         // mark trade intent as approved
         tradeIntents[intentId].status = TradeIntentStatus.APPROVED;
@@ -473,6 +483,12 @@ contract ArvoMain is Ownable, EIP712 {
             "Insurance does not exist!"
         );
 
+        // check if the insurance is still valid
+        require(
+            insurances[insuranceId].valid,
+            "Insurance is not valid!"
+        );
+
 
         Insurance memory insurance = insurances[insuranceId];
         TradeIntent memory intent = tradeIntents[insurance.tradeIntentId];
@@ -488,7 +504,11 @@ contract ArvoMain is Ownable, EIP712 {
         // deactivate the position
         insuranceToPosition[insuranceId].isActive = false;
 
-        // TODO: Unlock the asset on the vault contract - pass - ok / fail - revert the insurance and position to valid and active respectively
+        // Unlock the position asset in the user's vault
+        IVault(intent.vaultAddress).unlockAsset(
+            insuranceToPosition[insuranceId].tokenOutAddress,
+            insuranceToPosition[insuranceId].amountOut
+        );
 
         emit InsuranceInvalidated(insurance.id, insurance.tradeIntentId, insurance.riskAssessmentId, insurance.tradeConfirmationId);
         emit PositionDeactivated(insuranceToPosition[insuranceId].id, insurance.id, intent.vaultAddress, insuranceToPosition[insuranceId].tokenInAddress, insuranceToPosition[insuranceId].amountIn);
@@ -525,6 +545,16 @@ contract ArvoMain is Ownable, EIP712 {
         // transfer the coverage amount to the user
         IERC20 token = IERC20(tokenIn);
         token.safeTransfer(intent.vaultAddress, coverageAmount);
+
+        // refund the premium to the user
+        IERC20 premiumToken = IERC20(premiumTokenAddress);
+        premiumToken.safeTransfer(intent.vaultAddress, insurance.premium);
+        
+        // unlock the position asset in the user's vault
+        IVault(intent.vaultAddress).unlockAsset(
+            insuranceToPosition[insuranceId].tokenOutAddress,
+            insuranceToPosition[insuranceId].amountOut
+        );
 
         // invalidate the insurance and deactivate the position
         insurances[insuranceId].valid = false;

@@ -16,7 +16,7 @@ uint256 constant MAX_ALLOWED_RISK_SCORE = 70; // 70 percent is the maximum risk 
 enum TradeIntentStatus {
     PENDING,
     APPROVED,
-    REJECTED,
+    REJECTED
 }
 
 struct TradeIntent {
@@ -261,7 +261,7 @@ contract ArvoMain is Ownable, EIP712 {
 
         // check if already a insurance has been issued for this trade intent
         require(
-            tradeIntentToInsurance[intentId].length == 0,
+            bytes(tradeIntentToInsurance[intentId]).length == 0,
             "Insurance already issued for this trade intent!"
         );
 
@@ -371,6 +371,9 @@ contract ArvoMain is Ownable, EIP712 {
         require(intent.minCoverage <= 100, "Invalid coverage");
         require(intent.minCoverageDuration > 0, "Invalid coverage duration");
 
+        require(intent.amountIn > 0, "Invalid amount in");
+        require(intent.minAmountOut > 0, "Invalid minAmount");
+
         // verify the signature of the trade intent
         require(
             _verifyTradeIntent(intent),
@@ -411,7 +414,7 @@ contract ArvoMain is Ownable, EIP712 {
             "Invalid risk assessment signature!"
         );
 
-        string tradeIntentId = assessment.intentId;
+        string memory tradeIntentId = assessment.intentId;
         riskAssessments[tradeIntentId] = assessment;
         riskAssessmentExists[tradeIntentId] = true;
         emit SubmitRiskAssessment(assessment.id, tradeIntentId, assessment.riskScore, assessment.premium, assessment.coverage, assessment.coverageDuration);
@@ -463,7 +466,7 @@ contract ArvoMain is Ownable, EIP712 {
             "Invalid trade confirmation signature!"
         );
 
-        string tradeIntentId = confirmation.intentId;
+        string memory tradeIntentId = confirmation.intentId;
         tradeConfirmations[tradeIntentId] = confirmation;
         tradeConfirmationExists[tradeIntentId] = true;
         emit SubmitTradeConfirmation(confirmation.id, tradeIntentId, confirmation.transactionHash, confirmation.tokenIn, confirmation.tokenOut, confirmation.amountIn, confirmation.amountOut);

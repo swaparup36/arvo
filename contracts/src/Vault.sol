@@ -6,7 +6,7 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {Errors} from "./libraries/Errors.sol";
+import {VaultErrors} from "./libraries/VaultErrors.sol";
 import {IVaultEvents} from "./events/IVaultEvents.sol";
 
 contract Vault is Ownable, AccessControl, IVaultEvents, ReentrancyGuard {
@@ -49,7 +49,7 @@ contract Vault is Ownable, AccessControl, IVaultEvents, ReentrancyGuard {
 
     modifier checkAmount(uint256 amount) {
         if (amount == 0) {
-            revert Errors.InvalidAmount();
+            revert VaultErrors.InvalidAmount();
         }
         _;
     }
@@ -91,13 +91,13 @@ contract Vault is Ownable, AccessControl, IVaultEvents, ReentrancyGuard {
         uint256 available = availableBalance(address(0));
 
         if (amount > available) {
-            revert Errors.InsufficientBalance(available);
+            revert VaultErrors.InsufficientBalance(available);
         }
 
         (bool success, ) = payable(owner()).call{value: amount}("");
 
         if (!success) {
-            revert Errors.ExecutionFailed();
+            revert VaultErrors.ExecutionFailed();
         }
 
         emit ETHWithdrawn(owner(), amount);
@@ -111,7 +111,7 @@ contract Vault is Ownable, AccessControl, IVaultEvents, ReentrancyGuard {
         uint256 available = availableBalance(token);
 
         if (amount > available) {
-            revert Errors.InsufficientBalance(available);
+            revert VaultErrors.InsufficientBalance(available);
         }
 
         IERC20(token).safeTransfer(owner(), amount);
@@ -126,7 +126,7 @@ contract Vault is Ownable, AccessControl, IVaultEvents, ReentrancyGuard {
         uint256 available = availableBalance(asset);
 
         if (available < amount) {
-            revert Errors.InsufficientBalance(available);
+            revert VaultErrors.InsufficientBalance(available);
         }
 
         lockedAmount[asset] += amount;
@@ -139,7 +139,7 @@ contract Vault is Ownable, AccessControl, IVaultEvents, ReentrancyGuard {
         uint256 amount
     ) external onlyArvo checkAmount(amount) {
         if (lockedAmount[asset] < amount) {
-            revert Errors.InvalidUnlock(lockedAmount[asset]);
+            revert VaultErrors.InvalidUnlock(lockedAmount[asset]);
         }
 
         lockedAmount[asset] -= amount;
@@ -156,7 +156,7 @@ contract Vault is Ownable, AccessControl, IVaultEvents, ReentrancyGuard {
         (bool success, bytes memory returnData) = target.call{value: value}(
             data
         );
-        if (!success) revert Errors.ExecutionFailed();
+        if (!success) revert VaultErrors.ExecutionFailed();
 
         emit TradeExecuted(target, value, data);
 
@@ -172,7 +172,7 @@ contract Vault is Ownable, AccessControl, IVaultEvents, ReentrancyGuard {
         uint256 available = availableBalance(token);
 
         if (available < amount) {
-            revert Errors.InsufficientBalance(available);
+            revert VaultErrors.InsufficientBalance(available);
         }
 
         IERC20(token).forceApprove(spender, amount);
@@ -188,7 +188,7 @@ contract Vault is Ownable, AccessControl, IVaultEvents, ReentrancyGuard {
         uint256 available = availableBalance(usdc);
 
         if (available < amount) {
-            revert Errors.InsufficientBalance(available);
+            revert VaultErrors.InsufficientBalance(available);
         }
 
         IERC20(usdc).safeTransfer(to, amount);

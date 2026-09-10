@@ -14,7 +14,7 @@ function createServer(apiToken: string) {
     version: "1.0.0",
   });
 
-
+  // submit trade intent to MCP server
   server.registerTool(
     "post-trade-intent",
     {
@@ -124,6 +124,163 @@ function createServer(apiToken: string) {
             {
               type: "text",
               text: `Failed to reach trade intent API: ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    },
+  )
+
+  // get token balance of a particular token in the vault
+  server.registerTool(
+    "get-token-balance",
+    {
+        title: "get balance of any paticular token",
+        description: "Get the balance of a specific token in the vault",
+        inputSchema: {
+          chainId: z.number().describe("Chain ID of the blockchain network"),
+          tokenAddress: z.string().describe("Address of the token to check balance"),
+        }
+    },
+    async ({ chainId, tokenAddress }) => {
+      try {
+        const decoded = verifyToken(apiToken);
+        const { userId, agentId } = decoded as { userId: string; agentId?: string }; 
+        const agent = await prisma.agent.findFirst({
+          where: {
+            userId: userId,
+            id: agentId,
+          },
+        });
+
+        if (!agent) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "Agent not found for the provided userId and agentId",
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        // get vault address from agent
+        const vaultAddress = agent.vaultAddress;
+
+        // fetch the balance from the vault API
+        const res = await fetch(`${env.BASE_URL}/vault/get-vault-balance?vaultAddress=${vaultAddress}&chainId=${chainId}&asset=${tokenAddress}`, {
+          method: "GET"
+        });
+
+        if (!res.ok) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `API returned ${res.status} ${res.statusText}`,
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        const data = await res.json();
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Token balance fetched successfully: ${JSON.stringify(data, null, 2)}`,
+            },
+          ],
+        };
+      } catch (err) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Failed to get token balance: ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    },
+  )
+
+  // get all tokens held by the vault
+  server.registerTool(
+    "get-all-tokens",
+    {
+        title: "get all tokens held by the vault",
+        description: "Get a list of all tokens held by the vault",
+        inputSchema: {
+          chainId: z.number().describe("Chain ID of the blockchain network"),
+          vaultAddress: z.string().describe("Address of the vault to check"),
+        }
+    },
+    async ({ chainId, vaultAddress }) => {
+      try {
+        const decoded = verifyToken(apiToken);
+        const { userId, agentId } = decoded as { userId: string; agentId?: string }; 
+        const agent = await prisma.agent.findFirst({
+          where: {
+            userId: userId,
+            id: agentId,
+          },
+        });
+
+        if (!agent) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "Agent not found for the provided userId and agentId",
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        // fetch the token addresses from the vault API
+        const res = await fetch(`${env.BASE_URL}/vault/get-all-tokens?vaultAddress=${vaultAddress}&chainId=${chainId}`, {
+          method: "GET"
+        });
+
+        if (!res.ok) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `API returned ${res.status} ${res.statusText}`,
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        const data = await res.json();
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Token addresses fetched successfully: ${JSON.stringify(data, null, 2)}`,
+            },
+          ],
+        };
+      } catch (err) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Failed to get all tokens: ${
                 err instanceof Error ? err.message : String(err)
               }`,
             },

@@ -42,3 +42,9 @@ export function getERC20Contract(tokenAddress: string, chainId: number): ethers.
   }
   return erc20Instances[chainId][tokenAddress];
 }
+
+export function getVault(vaultAddress: string, chainId: number): ethers.Contract {
+  const provider = new ethers.JsonRpcProvider(RPC_URLS[chainId]);
+  const wallet = new ethers.Wallet(env.OWNER_PRIVATE_KEY, provider);
+  return new ethers.Contract(vaultAddress, ARVO_MAIN_ABI, wallet);
+}

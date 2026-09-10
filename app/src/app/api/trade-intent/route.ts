@@ -67,7 +67,7 @@ export async function POST(req: Request) {
         const { txHash, receipt } = await submitTradeIntent(onChainIntentStruct, tradeIntent.chainId);
 
         // confirm that the transaction was successful
-        if (receipt.status !== 1) {
+        if (!txHash || !receipt || receipt.status !== 1) {
             // delete the trade intent from the database if the transaction failed
             await prisma.tradeIntent.delete({ where: { id: tradeIntent.id } });
             return NextResponse.json({ error: "Failed to submit trade intent on-chain" }, { status: 500 });

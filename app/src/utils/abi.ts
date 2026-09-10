@@ -673,9 +673,44 @@ export const ARVO_MAIN_ABI = [
     outputs: [],
     stateMutability: "nonpayable",
     type: "function"
+  },
+  {
+    type: "function",
+    name: "claimInsurance",
+    inputs: [
+      {
+        name: "insuranceId",
+        type: "string",
+        internalType: "string"
+      }
+    ],
+    outputs: [],
+    stateMutability: "nonpayable"
   }
 ];
 
 export const ERC20_ABI = [
   "function decimals() view returns (uint8)"
 ];
+
+export const VAULT_CONTRACT_ABI = [
+  {
+    type: "function",
+    name: "availableBalance",
+    inputs: [
+      {
+        name: "asset",
+        type: "address",
+        internalType: "address"
+      }
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256"
+      }
+    ],
+    stateMutability: "view"
+  }
+]

@@ -98,3 +98,10 @@ export type VerifyWalletRequest = {
     address: string;
     signature: string;
 }
+
+export type getSwapQuoteRequest = {
+    chainId: number;
+    tokenIn: string;
+    tokenOut: string;
+    amountIn: number;
+}

@@ -3,128 +3,211 @@ import { getArvoMain } from "./onChainConfig";
 
 
 export async function submitTradeIntent(intent: OnChainSubmitTradeIntentStruct, chainId: number) {
-  const tx = await getArvoMain(chainId).submitTradeIntent({
-    id: intent.id,
-    userAddress: intent.userAddress,
-    agentAddress: intent.agentAddress,
-    vaultAddress: intent.vaultAddress,
-    tokenIn: intent.tokenIn,
-    tokenOut: intent.tokenOut,
-    amountIn: intent.amountIn,
-    minAmountOut: intent.minAmountOut,
-    deadline: intent.deadline,
-    maxPremium: intent.maxPremium,
-    minCoverage: intent.minCoverage,
-    minCoverageDuration: intent.minCoverageDuration,
-    signature: intent.signature,
-    status: intent.status,
-    createdAt: intent.createdAt
-  });
+  try {
+    const tx = await getArvoMain(chainId).submitTradeIntent({
+      id: intent.id,
+      userAddress: intent.userAddress,
+      agentAddress: intent.agentAddress,
+      vaultAddress: intent.vaultAddress,
+      tokenIn: intent.tokenIn,
+      tokenOut: intent.tokenOut,
+      amountIn: intent.amountIn,
+      minAmountOut: intent.minAmountOut,
+      deadline: intent.deadline,
+      maxPremium: intent.maxPremium,
+      minCoverage: intent.minCoverage,
+      minCoverageDuration: intent.minCoverageDuration,
+      signature: intent.signature,
+      status: intent.status,
+      createdAt: intent.createdAt
+    });
 
-  const receipt = await tx.wait();
+    const receipt = await tx.wait();
 
-  return {
-    txHash: receipt.hash,
-    receipt
-  };
+    return {
+      txHash: receipt.hash,
+      receipt
+    };
+  } catch (error) {
+    console.error("Error submitting trade intent:", error);
+    return {
+      txHash: null,
+      receipt: null
+    };
+  }
 }
 
 export async function submitRiskAssessment(assessment: OnChainSubmitRiskAssessmentStruct, chainId: number) {
-  const tx = await getArvoMain(chainId).submitRiskAssessment({
-    id: assessment.id,
-    intentId: assessment.intentId,
-    riskScore: assessment.riskScore,
-    premium: assessment.premium,
-    coverage: assessment.coverage,
-    coverageDuration: assessment.coverageDuration,
-    signature: assessment.signature,
-    assessedAt: assessment.assessedAt,
-    expiresAt: assessment.expiresAt,
-    assessmentHash: assessment.assessmentHash
-  });
+  try {
+    const tx = await getArvoMain(chainId).submitRiskAssessment({
+      id: assessment.id,
+      intentId: assessment.intentId,
+      riskScore: assessment.riskScore,
+      premium: assessment.premium,
+      coverage: assessment.coverage,
+      coverageDuration: assessment.coverageDuration,
+      signature: assessment.signature,
+      assessedAt: assessment.assessedAt,
+      expiresAt: assessment.expiresAt,
+      assessmentHash: assessment.assessmentHash
+    });
 
-  const receipt = await tx.wait();
+    const receipt = await tx.wait();
 
-  return {
-    txHash: receipt.hash,
-    receipt
-  };
+    return {
+      txHash: receipt.hash,
+      receipt
+    };
+  } catch (error) {
+    console.error("Error submitting risk assessment:", error);
+    return {
+      txHash: null,
+      receipt: null
+    };
+  }
 }
 
 export async function submitTradeConfirmation(confirmation: OnChainSubmitTradeConfirmationStruct, chainId: number) {
-  const tx = await getArvoMain(chainId).submitTradeConfirmation({
-    id: confirmation.id,
-    intentId: confirmation.intentId,
-    transactionHash: confirmation.transactionHash,
-    tokenIn: confirmation.tokenIn,
-    tokenOut: confirmation.tokenOut,
-    amountIn: confirmation.amountIn,
-    amountOut: confirmation.amountOut,
-    signature: confirmation.signature,
-    executedAt: confirmation.executedAt,
-    createdAt: confirmation.createdAt
-  });
+  try {
+    const tx = await getArvoMain(chainId).submitTradeConfirmation({
+      id: confirmation.id,
+      intentId: confirmation.intentId,
+      transactionHash: confirmation.transactionHash,
+      tokenIn: confirmation.tokenIn,
+      tokenOut: confirmation.tokenOut,
+      amountIn: confirmation.amountIn,
+      amountOut: confirmation.amountOut,
+      signature: confirmation.signature,
+      executedAt: confirmation.executedAt,
+      createdAt: confirmation.createdAt
+    });
 
-  const receipt = await tx.wait();
+    const receipt = await tx.wait();
 
-  return {
-    txHash: receipt.hash,
-    receipt
-  };
+    return {
+      txHash: receipt.hash,
+      receipt
+    };
+  } catch (error) {
+    console.error("Error submitting trade confirmation:", error);
+    return {
+      txHash: null,
+      receipt: null
+    };
+  }
 }
 
 export async function getTradeIntent(intentId: string, chainId: number) {
-  const intent = await getArvoMain(chainId).getTradeIntent(intentId);
+  try {
+    const intent = await getArvoMain(chainId).getTradeIntent(intentId);
 
-  return intent;
+    return intent;
+  } catch (error) {
+    console.error("Error fetching trade intent:", error);
+    return null;
+  }
 }
 
 export async function getRiskAssessment(intentId: string, chainId: number) {
-  const assessment = await getArvoMain(chainId).getRiskAssessment(intentId);
+  try {
+    const assessment = await getArvoMain(chainId).getRiskAssessment(intentId);
 
-  return assessment;
+    return assessment;
+  } catch (error) {
+    console.error("Error fetching risk assessment:", error);
+    return null;
+  }
 }
 
 export async function getTradeConfirmation(intentId: string, chainId: number) {
-  const confirmation =
-    await getArvoMain(chainId).getTradeConfirmation(intentId);
+  try {
+    const confirmation = await getArvoMain(chainId).getTradeConfirmation(intentId);
 
-  return confirmation;
+    return confirmation;
+  } catch (error) {
+    console.error("Error fetching trade confirmation:", error);
+    return null;
+  }
 }
 
 export async function getInsuranceByTradeIntentId(intentId: string, chainId: number) {
-  const insurance = await getArvoMain(chainId).getInsuranceByTradeIntentId(intentId);
+  try {
+    const insurance = await getArvoMain(chainId).getInsuranceByTradeIntentId(intentId);
 
-  return insurance;
+    return insurance;
+  } catch (error) {
+    console.error("Error fetching insurance by trade intent ID:", error);
+    return null;
+  }
 }
 
 export async function getInsurance(insuranceId: string, chainId: number) {
-  const insurance =
-    await getArvoMain(chainId).getInsurance(insuranceId);
+  try {
+    const insurance = await getArvoMain(chainId).getInsurance(insuranceId);
 
-  return insurance;   
+    return insurance;
+  } catch (error) {
+    console.error("Error fetching insurance:", error);
+    return null;
+  }
 }
 
 export async function getPositionByTradeIntentId(intentId: string, chainId: number) {
-  const position = await getArvoMain(chainId).getPositionByTradeIntentId(intentId);
+  try {
+    const position = await getArvoMain(chainId).getPositionByTradeIntentId(intentId);
 
-  return position;
+    return position;
+  } catch (error) {
+    console.error("Error fetching position by trade intent ID:", error);
+    return null;
+  }
 }
 
 export async function getPosition(insuranceId: string, chainId: number) {
-  const position =
-    await getArvoMain(chainId).getPosition(insuranceId);
+  try {
+    const position = await getArvoMain(chainId).getPosition(insuranceId);
 
-  return position;
+    return position;
+  } catch (error) {
+    console.error("Error fetching position:", error);
+    return null;
+  }
 }
 
 export async function invalidateInsurance(insuranceId: string, chainId: number) {
-  const tx = await getArvoMain(chainId).invalidateInsurance(insuranceId);
+  try {
+    const tx = await getArvoMain(chainId).invalidateInsurance(insuranceId);
 
-  const receipt = await tx.wait();
+    const receipt = await tx.wait();
 
-  return {
-    txHash: receipt.hash,
-    receipt
-  };
+    return {
+      txHash: receipt.hash,
+      receipt
+    };
+  } catch (error) {
+    console.error("Error invalidating insurance:", error);
+    return {
+      txHash: null,
+      receipt: null
+    };
+  }
+}
+
+export async function claimInsurance(insuranceId: string, chainId: number) {
+  try {
+    const tx = await getArvoMain(chainId).claimInsurance(insuranceId);
+
+    const receipt = await tx.wait();
+
+    return {
+      txHash: receipt.hash,
+      receipt
+    };
+  } catch (error) {
+    console.error("Error claiming insurance:", error);
+    return {
+      txHash: null,
+      receipt: null
+    };
+  }
 }

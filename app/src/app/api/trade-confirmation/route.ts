@@ -56,7 +56,7 @@ export async function POST(req: Request) {
         const { txHash, receipt } = await submitTradeConfirmation(onChainConfirmationStruct, tradeConfirmation.chainId);
 
         // confirm that the transaction was successful
-        if (receipt.status !== 1) {
+        if (!txHash || !receipt || receipt.status !== 1) {
             // delete the trade confirmation from the database if the transaction failed
             await prisma.tradeConfirmation.delete({ where: { id: tradeConfirmation.id } });
             return NextResponse.json({ error: "Failed to submit trade confirmation on-chain" }, { status: 500 });

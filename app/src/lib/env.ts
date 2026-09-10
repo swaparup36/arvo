@@ -10,6 +10,9 @@ const schema = z.object({
   ARVO_MAIN_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
   OWNER_PRIVATE_KEY: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
   SEPOLIA_RPC_URL: z.string().url(),
+  ALCHEMY_API_KEY: z.string(),
+  ONE_INCH_BASE_URL: z.string().url(),
+  ONE_INCH_API_KEY: z.string(),
 });
 
 const parsed = schema.safeParse(process.env);

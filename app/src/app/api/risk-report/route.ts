@@ -55,7 +55,7 @@ export async function POST(req: Request) {
         const { txHash, receipt } = await submitRiskAssessment(onChainAssessmentStruct, tradeIntent.chainId);
 
          // confirm that the transaction was successful
-        if (receipt.status !== 1) {
+        if (!txHash || !receipt || receipt.status !== 1) {
             // delete the risk assessment from the database if the transaction failed
             await prisma.riskAssessment.delete({ where: { id: riskReport.id } });
             return NextResponse.json({ error: "Failed to submit risk assessment on-chain" }, { status: 500 });

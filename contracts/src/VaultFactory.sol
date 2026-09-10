@@ -6,7 +6,7 @@ import {VaultFactoryErrors} from "./libraries/VaultFactoryErrors.sol";
 import {IVaultFactoryEvents} from "./events/IVaultFactoryEvents.sol";
 
 contract VaultFactory is IVaultFactoryEvents {
-    mapping(address => address) private userVaults;
+    mapping(address => address[]) private userVaults;
 
     constructor() {}
 
@@ -16,14 +16,6 @@ contract VaultFactory is IVaultFactoryEvents {
         address _arvoProto,
         address _executor
     ) external returns (address) {
-        // allow single vault for a single user per chain
-        address existingVault = userVaults[msg.sender];
-        if (existingVault != address(0)) {
-            revert VaultFactoryErrors.VaultAlreadyExistForThisUser(
-                existingVault
-            );
-        }
-
         // deploy new vault contract
         Vault newVault = new Vault(
             msg.sender,
@@ -33,14 +25,16 @@ contract VaultFactory is IVaultFactoryEvents {
         );
 
         address vaultAddress = address(newVault);
-        userVaults[msg.sender] = vaultAddress;
+        userVaults[msg.sender].push(vaultAddress);
 
         emit VaultCreatedSuccessfully(msg.sender, vaultAddress);
 
         return vaultAddress;
     }
 
-    function getVault(address user) external view returns (address) {
+    function getUserVaults(
+        address user
+    ) external view returns (address[] memory) {
         return userVaults[user];
     }
 }

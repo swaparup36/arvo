@@ -8,5 +8,7 @@ interface IVaultFactory {
         address _executor
     ) external returns (address);
 
-    function getVault(address user) external view returns (address);
+    function getUserVaults(
+        address user
+    ) external view returns (address[] memory);
 }

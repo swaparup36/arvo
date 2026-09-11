@@ -81,7 +81,7 @@ export async function pipeLine(tradeIntent: TradeIntent) {
         executedAt: new Date(),
     };
 
-    const response = await fetch(`${ARVO_BACKEND_URL}/api/trade-intent/`, {
+    const response = await fetch(`${ARVO_BACKEND_URL}/api/trade-confirmation/`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",

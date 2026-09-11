@@ -99,19 +99,64 @@ export type VerifyWalletRequest = {
     signature: string;
 }
 
-export type getSwapQuoteRequest = {
-    chainId: number;
-    tokenIn: string;
-    tokenOut: string;
-    amountIn: string;
+export type getSwapApprovalReq = {
+    chainId: number; 
+    tokenIn: string; 
+    tokenOut: string; 
+    amountIn: string; 
+    vaultAddress: string
 }
 
-export type GetSwapCallDataRequest = {
-    chainId: number;
-    tokenIn: string;
-    tokenOut: string;
-    amountIn: string;
-    from: string;
-    origin: string;
-    minAmountOut: string;
+export type SwapApprovalData = {
+  to: string;
+  from: string;
+  data: string;
+  value: string;
+  chainId: number;
+  gasLimit?: string;
+  maxFeePerGas?: string;
+  maxPriorityFeePerGas?: string;
+  gasPrice?: string;
+}
+
+export type SwapApprovalResponse = {
+  requestId: string;
+  approval: SwapApprovalData | null;
+  cancel: SwapApprovalData | null;
+  gasFee?: string;
+  cancelGasFee?: string;
+}
+
+export type UniswapSwapTransaction = {
+  to: string;
+  from: string;
+  data: string;
+  value: string;
+  chainId: number;
+  gasLimit?: string;
+  maxFeePerGas?: string;
+  maxPriorityFeePerGas?: string;
+  gasPrice?: string;
+}
+
+export type UniswapSwapResponse = {
+  requestId: string;
+  swap: UniswapSwapTransaction;
+  gasFee?: string;
+}
+
+export type GetQuoteParams = {
+  chainId: number;
+  tokenIn: string;
+  tokenOut: string;
+  amountIn: string;
+  vaultAddress: string;
+}
+
+export type UniswapQuoteResponse = {
+  requestId: string;
+  quote: any;
+  routing: string;
+  isTokenApprovalApplicable?: boolean;
+  permitData?: any;
 }

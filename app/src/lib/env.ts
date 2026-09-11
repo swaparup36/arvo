@@ -11,6 +11,9 @@ const schema = z.object({
   CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(60),
   BASE_MCP_URL: z.string().url().default("http://localhost:3000/mcp"),
   BASE_URL: z.string().url().default("http://localhost:3000"),
+  ARVO_MAIN_ETH_ADDRESS: z
+    .string()
+    .default("0x0000000000000000000000000000000000000000"),
   ARVO_MAIN_SEPOLIA_ADDRESS: z
     .string()
     .default("0x0000000000000000000000000000000000000000"),
@@ -18,14 +21,19 @@ const schema = z.object({
     .string()
     .default("0x0000000000000000000000000000000000000000"),
   OWNER_PRIVATE_KEY: z.string().default(""),
+  ETHEREUM_RPC_URL: z
+    .string()
+    .url()
+    .default("https://ethereum-mainnet.g.alchemy.com/v2"),
+  ALCHEMY_API_KEY: z.string().default(""),
+  UNISWAP_API_BASE_URL: z.string().default("https://trade-api.gateway.uniswap.org/v1"),
+  UNISWAP_API_KEY: z.string().default(""),
+  OWNER_ADDRESS: z.string().default("0x0000000000000000000000000000000000000000"),
+  USDC_ETH_ADDRESS: z.string().default("0x0000000000000000000000000000000000000000"),
   SEPOLIA_RPC_URL: z
     .string()
     .url()
-    .default("https://ethereum-sepolia-rpc.publicnode.com"),
-  ALCHEMY_API_KEY: z.string().default(""),
-  ONE_INCH_BASE_URL: z.string().default("https://api.1inch.dev"),
-  ONE_INCH_API_KEY: z.string().default(""),
-  OWNER_ADDRESS: z.string().default("0x0000000000000000000000000000000000000000"),
+    .default("https://ethereum-sepolia.g.alchemy.com/v2"),
   USDC_SEPOLIA_ADDRESS: z.string().default("0x0000000000000000000000000000000000000000"),
 });
 

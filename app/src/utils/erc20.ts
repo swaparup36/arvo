@@ -2,6 +2,7 @@ import { env } from "@/lib/env";
 import { getERC20Contract } from "./onChainConfig";
 
 export const CHAIN_TO_USDC_ADDRESS: Record<number, string> = {
+    1: env.USDC_ETH_ADDRESS,
     11155111: env.USDC_SEPOLIA_ADDRESS,
 };
 

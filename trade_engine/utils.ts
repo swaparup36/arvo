@@ -4,7 +4,8 @@ import type { GetQuoteParams, getSwapApprovalReq, SwapApprovalResponse, UniswapQ
 const UNISWAP_ROUTER_VERSION = "2.0";
 
 export const CHAIN_TO_UNISWAP_PROXY: Record<number, string> = {
-    1: "0x0000000085E102724e78eCd2F45DC9cA239Affad"
+    1: "0x0000000085E102724e78eCd2F45DC9cA239Affad",
+    11155111: "0x0000000085E102724e78eCd2F45DC9cA239Affad"
 }
 
 

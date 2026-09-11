@@ -1,7 +1,8 @@
-import { getSwapQuote } from "@/utils/1inch";
+import { getQuote } from "@/utils/uniswap";
 import { claimInsurance, getInsurance, getPosition } from "@/utils/arvoMain";
 import { claimSettler } from "@/utils/claimSettler";
 import { NextResponse } from "next/server";
+import { GetQuoteParams } from "@/types/schema";
 
 // GET (claim the insurance)
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -31,24 +32,25 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         // get the position details
         const tokenOutAddress = postion.tokenOutAddress;
         const tokenInAddress = postion.tokenInAddress;
-        const amountOut = postion.amountOut;
-        const amountIn = postion.amountIn;
+        const amountOut = BigInt(postion.amountOut);
+        const amountIn = BigInt(postion.amountIn);
 
         // get the current value of the position based on the token addresses and amounts
-        const swapQuoteRequest = {
+        const swapQuoteRequest: GetQuoteParams = {
             chainId: parseInt(chainId),
-            tokenIn: tokenInAddress,
-            tokenOut: tokenOutAddress,
-            amountIn: amountIn,
+            tokenIn: tokenOutAddress,
+            tokenOut: tokenInAddress,
+            amountIn: amountOut.toString(),
+            vaultAddress: insurance.vaultAddress,
         }
 
-        const swapQuote = await getSwapQuote(swapQuoteRequest);
+        const swapQuote = await getQuote(swapQuoteRequest);
 
         if (!swapQuote) {
             return NextResponse.json({ error: "Swap quote not found" }, { status: 404 });
         }
 
-        const currentValue = swapQuote.dstAmount;
+        const currentValue = BigInt(swapQuote.quote.output.amount);
 
         // check if profit or loss
         const profitOrLoss = currentValue - amountOut;

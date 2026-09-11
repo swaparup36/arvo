@@ -5,7 +5,8 @@ import { CHAIN_TO_ARVO_MAIN_ADDRESS } from "./arvoMain";
 
 
 const RPC_URLS: { [chainId: number]: string } = {
-    11155111: env.SEPOLIA_RPC_URL,
+  1: env.ETHEREUM_RPC_URL,
+  11155111: env.SEPOLIA_RPC_URL,
 };
 
 // singleton pattern to ensure only one instance of the contract is created

@@ -1,10 +1,11 @@
 import { ethers } from "ethers";
 import { VAULT_ABI } from "./abi.js";
-import { EXECUTOR_PRIVATE_KEY, ETH_RPC_URL } from "../constants.js";
+import { EXECUTOR_PRIVATE_KEY, ETH_RPC_URL, SEPOLIA_RPC_URL } from "../constants.js";
 
 
 const RPC_URLS: { [chainId: number]: string } = {
     1: ETH_RPC_URL,
+    11155111: SEPOLIA_RPC_URL,
 };
 
 // singleton pattern to ensure only one instance of the contract is created

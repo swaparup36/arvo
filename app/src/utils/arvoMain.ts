@@ -4,7 +4,8 @@ import { env } from "@/lib/env";
 
 
 export const CHAIN_TO_ARVO_MAIN_ADDRESS: Record<number, string> = {
-    11155111: env.ARVO_MAIN_SEPOLIA_ADDRESS,
+  1: env.ARVO_MAIN_ETH_ADDRESS,
+  11155111: env.ARVO_MAIN_SEPOLIA_ADDRESS,
 };
 
 export async function submitTradeIntent(intent: OnChainSubmitTradeIntentStruct, chainId: number) {

@@ -11,6 +11,7 @@ declare const process: {
         NODE_ENV?: string,
         UNISWAP_API_KEY?: string,
         MOCK_USDC_ADDRESS?: string,
+        SEPOLIA_RPC_URL?: string,
     }
 };
 
@@ -24,3 +25,4 @@ export const EXECUTOR_PRIVATE_KEY = process.env.EXECUTOR_PRIVATE_KEY!;
 export const TRADE_CONFIRMATION_SECRET = process.env.TRADE_CONFIRMATION_SECRET!;
 export const NODE_ENV = process.env.NODE_ENV || "development";
 export const MOCK_USDC_ADDRESS = process.env.MOCK_USDC_ADDRESS!;
+export const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL!;

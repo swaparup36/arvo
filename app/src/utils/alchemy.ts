@@ -1,7 +1,8 @@
 import { env } from "@/lib/env";
 
 const chainIdToNetwork: Record<number, string> = {
-    11155111: "eth-sepolia"
+    1: "eth-mainnet",
+    11155111: "eth-sepolia",
 }
 
 export async function getAllTokensHeldByTheVault(vaultAddress: string, chainId: number): Promise<string[]> {

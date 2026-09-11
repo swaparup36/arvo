@@ -12,14 +12,13 @@ type ServiceStatus = {
 
 async function postgresStatus(): Promise<ServiceStatus> {
   try {
-    const [users, posts] = await Promise.all([
+    const [users] = await Promise.all([
       prisma.user.count(),
-      prisma.post.count(),
     ]);
     return {
       name: "Postgres (Prisma)",
       ok: true,
-      detail: `${users} user${users === 1 ? "" : "s"}, ${posts} post${posts === 1 ? "" : "s"}`,
+      detail: `${users} user${users === 1 ? "" : "s"}`,
     };
   } catch (err) {
     return {

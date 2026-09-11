@@ -1,6 +1,11 @@
 import { OnChainSubmitRiskAssessmentStruct, OnChainSubmitTradeConfirmationStruct, OnChainSubmitTradeIntentStruct } from "@/types/schema";
 import { getArvoMain } from "./onChainConfig";
+import { env } from "@/lib/env";
 
+
+export const CHAIN_TO_ARVO_MAIN_ADDRESS: Record<number, string> = {
+    11155111: env.ARVO_MAIN_SEPOLIA_ADDRESS,
+};
 
 export async function submitTradeIntent(intent: OnChainSubmitTradeIntentStruct, chainId: number) {
   try {

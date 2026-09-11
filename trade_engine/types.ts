@@ -18,40 +18,81 @@ export type TradeIntent = {
     updatedAt: Date;
 }
 
-export type GetSwapCallDataRequest = {
-    chainId: number;
-    tokenIn: string;
-    tokenOut: string;
-    amountIn: string;
-    from: string;
-    origin: string;
-    minAmountOut: string;
+export type getSwapApprovalReq = {
+    chainId: number; 
+    tokenIn: string; 
+    tokenOut: string; 
+    amountIn: string; 
+    vaultAddress: string
 }
 
-export type GetAllowanceRequest = {
-    chainId: number;
-    tokenAddress: string;
-    walletAddress: string;
+export type SwapApprovalData = {
+  to: string;
+  from: string;
+  data: string;
+  value: string;
+  chainId: number;
+  gasLimit?: string;
+  maxFeePerGas?: string;
+  maxPriorityFeePerGas?: string;
+  gasPrice?: string;
 }
 
-export type GetApproveDataRequest = {
-    chainId: number;
-    tokenAddress: string;
-    amount: string;
+export type SwapApprovalResponse = {
+  requestId: string;
+  approval: SwapApprovalData | null;
+  cancel: SwapApprovalData | null;
+  gasFee?: string;
+  cancelGasFee?: string;
 }
+
+export type UniswapSwapTransaction = {
+  to: string;
+  from: string;
+  data: string;
+  value: string;
+  chainId: number;
+  gasLimit?: string;
+  maxFeePerGas?: string;
+  maxPriorityFeePerGas?: string;
+  gasPrice?: string;
+}
+
+export type UniswapSwapResponse = {
+  requestId: string;
+  swap: UniswapSwapTransaction;
+  gasFee?: string;
+}
+
+export type GetQuoteParams = {
+  chainId: number;
+  tokenIn: string;
+  tokenOut: string;
+  amountIn: string;
+  vaultAddress: string;
+}
+
+export type UniswapQuoteResponse = {
+  requestId: string;
+  quote: any;
+  routing: string;
+  isTokenApprovalApplicable?: boolean;
+  permitData?: any;
+}
+
 
 export type CreateTradeConfirmationRequest = {
-    intentId: string;
+  intentId: string;
 
-    transactionHash: string;
-    chainId: number;
+  transactionHash: string;
+  chainId: number;
 
-    tokenIn: string;
-    tokenOut: string;
+  tokenIn: string;
+  tokenOut: string;
 
-    amountIn: bigint;
-    amountOut: bigint;
+  amountIn: bigint;
+  amountOut: bigint;
 
-    signature: string;
-    executedAt: Date;
+  signature: string;
+  executedAt: Date;
 }

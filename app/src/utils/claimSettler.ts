@@ -1,18 +1,16 @@
-
-
-// this function checks the balance of token for the arvo main contract 
-// and if the balance is less than the amount needed to give user as claim 
-
 import { env } from "@/lib/env";
 import { CHAIN_TO_USDC_ADDRESS, getTokenBalance, setTokenAllowance, transferToken } from "./erc20";
 import { getSwapCallData, getSwapQuote } from "./1inch";
 import { getSigner } from "./onChainConfig";
+import { CHAIN_TO_ARVO_MAIN_ADDRESS } from "./arvoMain";
 
+// this function checks the balance of token for the arvo main contract 
+// and if the balance is less than the amount needed to give user as claim 
 // then it buys that token from 1inch and sends it to the arvo main contract
 export async function claimSettler(token: string, chainId: number, amountNeed: bigint) {
     try {
         // get the balance of token for the arvo main contract
-        const balance = await getTokenBalance(token, env.ARVO_MAIN_ADDRESS, chainId);
+        const balance = await getTokenBalance(token, CHAIN_TO_ARVO_MAIN_ADDRESS[chainId], chainId);
 
         if (!balance) {
             return {
@@ -53,7 +51,7 @@ export async function claimSettler(token: string, chainId: number, amountNeed: b
             chainId: chainId,
             tokenIn: usdcAddress,
             tokenOut: token,
-            amountIn: (estimatedUSDCAmount + BigInt(1000000000000000)).toString(), // slightly more than estimated to account for slippage
+            amountIn: (estimatedUSDCAmount).toString(), // slightly more than estimated to account for slippage
             from: env.OWNER_ADDRESS,
             origin: env.OWNER_ADDRESS,
             minAmountOut: amountToBuy.toString(),
@@ -69,7 +67,7 @@ export async function claimSettler(token: string, chainId: number, amountNeed: b
             };
         }
 
-        const allowance2 = await setTokenAllowance(usdcAddress, swapCallData.tx.to, estimatedUSDCAmount + BigInt(1000000000000000), chainId);
+        const allowance2 = await setTokenAllowance(usdcAddress, swapCallData.tx.to, estimatedUSDCAmount, chainId);
         if (!allowance2.txHash || !allowance2.receipt || allowance2.receipt.status !== 1) {
             return {
                 success: false,
@@ -105,7 +103,7 @@ export async function claimSettler(token: string, chainId: number, amountNeed: b
         console.log("Swap successful:", tx.hash);
 
         // send the bought token to the arvo main contract
-        const transfer = await transferToken(token, env.ARVO_MAIN_ADDRESS, amountToBuy, chainId);
+        const transfer = await transferToken(token, CHAIN_TO_ARVO_MAIN_ADDRESS[chainId], amountToBuy, chainId);
         if (!transfer.txHash || !transfer.receipt || transfer.receipt.status !== 1) {
             return {
                 success: false,

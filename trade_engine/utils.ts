@@ -1,116 +1,147 @@
-import axios from "axios";
-import { ONE_INCH_API_KEY, ONE_INCH_BASE_URL } from "./constants.js";
-import type { GetAllowanceRequest, GetApproveDataRequest, GetSwapCallDataRequest } from "./types.js";
+import { UNISWAP_API_URL, UNISWAP_API_KEY  } from "./constants.js";
+import type { GetQuoteParams, getSwapApprovalReq, SwapApprovalResponse, UniswapQuoteResponse, UniswapSwapResponse, UniswapSwapTransaction } from "./types.js";
 
-// get call data for swap on 1inch
-export async function getSwapCallData(request: GetSwapCallDataRequest) {
+const UNISWAP_ROUTER_VERSION = "2.0";
+
+export const CHAIN_TO_UNISWAP_PROXY: Record<number, string> = {
+    1: "0x0000000085E102724e78eCd2F45DC9cA239Affad"
+}
+
+
+export async function getSwapApprovalData(request: getSwapApprovalReq): Promise<SwapApprovalResponse | null> {
     try {
-        const { chainId, tokenIn, tokenOut, amountIn, from, origin, minAmountOut } = request;
+        const { chainId, tokenIn, tokenOut, amountIn, vaultAddress } = request;
+        const response = await fetch(
+            `${UNISWAP_API_URL}/check_approval`,
+            {
+                method: "POST",
+                headers: {
+                    "x-api-key": UNISWAP_API_KEY,
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                    "x-permit2-disabled": "true",
+                },
 
-        const url = `${ONE_INCH_BASE_URL}/${chainId}/swap`;
+                body: JSON.stringify({
+                    walletAddress: vaultAddress,
+                    token: tokenIn,
+                    amount: amountIn,
+                    chainId,
+                    tokenOut,
+                    tokenOutChainId: chainId,
+                }),
+            }
+        );
 
-        const config = {
-            headers: {
-                Authorization: `Bearer ${ONE_INCH_API_KEY}`,
-            },
-            params: {
-                src: tokenIn,
-                dst: tokenOut,
-                amount: amountIn,
-                minReturn: minAmountOut,
-            },
-            paramsSerializer: {
-                indexes: null,
-            },
-        };
+        if (!response.ok) {
+            console.error("Failed to get swap approval data from Uniswap API");
+            return null;
+        }
 
-        const response = await axios.get(url, config);
-        console.log(response.data);
+        const result = (await response.json()) as SwapApprovalResponse;
 
-        return response.data;
+        return result;
     } catch (error) {
-        console.error("Error getting swap call data:", error);
-        throw new Error("Failed to get swap call data");
+        console.error("Error occurred while fetching swap approval data from Uniswap API", error);
+        return null;
     }
 }
 
-// get address of the 1inch Router that is trusted to spend funds for the swap
-export async function getRouterAddress(chainId: number) {
-    try{
-        const url = `${ONE_INCH_BASE_URL}/${chainId}/approve/spender`;
+export async function getSwapCallData(quote: any): Promise<UniswapSwapTransaction | null> {
+    try {
+        const response = await fetch(
+            `${UNISWAP_API_URL}/swap`,
+            {
+                method: "POST",
+                headers: {
+                    "x-api-key": UNISWAP_API_KEY,
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "x-universal-router-version": UNISWAP_ROUTER_VERSION,
+                    "x-permit2-disabled": "true",
+                },
+                body: JSON.stringify({
+                    quote,
+                }),
+            }
+        );
 
-        const config = {
-            headers: {
-            Authorization: `Bearer ${ONE_INCH_API_KEY}`,
-            },
-            params: {},
-                paramsSerializer: {
-                indexes: null,
-            },
-        };
-        const response = await axios.get(url, config);
-        return response.data;
+        if (!response.ok) {
+            const error = await response.text();
+            console.error(`Uniswap /swap failed: ${error}`);
+            return null;
+        }
+
+        const result = (await response.json()) as UniswapSwapResponse;
+
+        if (!result.swap) {
+            console.error("Uniswap /swap returned no swap data");
+            return null;
+        }
+
+        if (!result.swap.to) {
+            console.error("Uniswap /swap returned no 'to' address");
+            return null;
+        }
+
+        if (!result.swap.data) {
+            console.error("Uniswap /swap returned no 'data' field");
+            return null;
+        }
+
+        return result.swap;
     } catch (error) {
-        console.error("Error getting router address:", error);
-        throw new Error("Failed to get router address");
+        console.error("Error occurred while fetching swap call data from Uniswap API", error);
+        return null;
     }
 }
 
-// get the number of tokens that the 1inch Router is allowed to swap
-export async function getAllowance(request: GetAllowanceRequest) {
+export async function getQuote(params: GetQuoteParams): Promise<UniswapQuoteResponse | null> {
     try {
-        const { chainId, tokenAddress, walletAddress } = request;
+        const response = await fetch(
+            `${UNISWAP_API_URL}/quote`,
+            {
+                method: "POST",
+                headers: {
+                    "x-api-key": UNISWAP_API_KEY,
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "x-universal-router-version": UNISWAP_ROUTER_VERSION,
+                    "x-permit2-disabled": "true",
+                },
+                body: JSON.stringify({
+                    "type": "EXACT_INPUT",
+                    "amount": params.amountIn,
+                    "tokenInChainId": params.chainId,
+                    "tokenOutChainId": params.chainId,
+                    "tokenIn": params.tokenIn,
+                    "tokenOut": params.tokenOut,
+                    "swapper": params.vaultAddress,
+                    "protocols": [
+                        "V2",
+                        "V3",
+                        "V4",
+                    ]
+                }),
+            }
+        );
 
-        const url = `${ONE_INCH_BASE_URL}/${chainId}/approve/allowance`;
-        const config = {
-            headers: {
-                Authorization: `Bearer ${ONE_INCH_API_KEY}`,
-            },
-            params: {
-                tokenAddress: tokenAddress,
-                walletAddress: walletAddress,
-                chainId: chainId,
-            },
-            paramsSerializer: {
-                indexes: null,
-            },
-        };
+        if (!response.ok) {
+            const error = await response.text();
+            console.error(`Uniswap /quote failed: ${error}`);
+            return null;
+        }
 
-        const response = await axios.get(url, config);
-        console.log(response.data);
+        const result = (await response.json()) as UniswapQuoteResponse;
 
-        return response.data;
+        if (!result.quote) {
+            console.error("Uniswap /quote returned no quote data");
+            return null;
+        }
+
+        return result;
     } catch (error) {
-        console.error("Error getting allowance:", error);
-        throw new Error("Failed to get allowance");
-    }
-}
-
-// get approve calldata to allow 1inch Router to perform a swap
-export async function getApproveCallData(request: GetApproveDataRequest) {
-    try {
-        const { chainId, tokenAddress, amount } = request;
-        
-        const url = `${ONE_INCH_BASE_URL}/${chainId}/approve/transaction`;
-        const config = {
-            headers: {
-                Authorization: `Bearer ${ONE_INCH_API_KEY}`,
-            },
-            params: {
-                tokenAddress: tokenAddress,
-                amount: amount,
-            },
-            paramsSerializer: {
-                indexes: null,
-            },
-        };
-
-        const response = await axios.get(url, config);
-        console.log(response.data);
-
-        return response.data;
-    } catch (error) {
-        console.error("Error generating approve call data:", error);
-        throw new Error("Failed to generate approve call data");
+        console.error("Error occurred while fetching quote from Uniswap API", error);
+        return null;
     }
 }

@@ -1,6 +1,7 @@
 import { ethers } from "ethers";
 import { env } from "../lib/env";
 import { ARVO_MAIN_ABI, ERC20_ABI } from "./abi";
+import { CHAIN_TO_ARVO_MAIN_ADDRESS } from "./arvoMain";
 
 
 const RPC_URLS: { [chainId: number]: string } = {
@@ -15,7 +16,7 @@ export function getArvoMain(chainId: number): ethers.Contract {
     const provider = new ethers.JsonRpcProvider(RPC_URLS[chainId]);
     const wallet = new ethers.Wallet(env.OWNER_PRIVATE_KEY, provider);
     arvoMainInstances[chainId] = new ethers.Contract(
-      env.ARVO_MAIN_ADDRESS,
+      CHAIN_TO_ARVO_MAIN_ADDRESS[chainId],
       ARVO_MAIN_ABI,
       wallet
     );

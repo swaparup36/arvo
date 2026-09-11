@@ -1,0 +1,1 @@
+{"errorCode":"NotFound","detail":"Failed to fetch gas fee and/or simulate transaction: Error: BadRequest: FAILED_TO_ESTIMATE_GAS: TRANSFER_FROM_FAILED","requestId":"78ae534c9be71364f2ee236de49085cf"}

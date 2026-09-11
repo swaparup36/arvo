@@ -10,7 +10,7 @@ import { ArvoMain } from "../src/ArvoMain.sol";
 contract Deploy is Script {
     // chain agnostic function to get the premium token address for the current chain
     function premiumToken() public view returns (address) {
-        if (block.chainid == 11155111) return 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238; // Sepolia
+        if (block.chainid == 1) return 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48; // Sepolia
 
         revert("No known USDC for this chain; set PREMIUM_TOKEN_ADDRESS");
     }

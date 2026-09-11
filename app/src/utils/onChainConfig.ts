@@ -48,3 +48,8 @@ export function getVault(vaultAddress: string, chainId: number): ethers.Contract
   const wallet = new ethers.Wallet(env.OWNER_PRIVATE_KEY, provider);
   return new ethers.Contract(vaultAddress, ARVO_MAIN_ABI, wallet);
 }
+
+export function getSigner(chainId: number): ethers.Wallet {
+  const provider = new ethers.JsonRpcProvider(RPC_URLS[chainId]);
+  return new ethers.Wallet(env.OWNER_PRIVATE_KEY, provider);
+}

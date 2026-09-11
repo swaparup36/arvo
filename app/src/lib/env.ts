@@ -25,6 +25,8 @@ const schema = z.object({
   ALCHEMY_API_KEY: z.string().default(""),
   ONE_INCH_BASE_URL: z.string().default("https://api.1inch.dev"),
   ONE_INCH_API_KEY: z.string().default(""),
+  OWNER_ADDRESS: z.string().default("0x0000000000000000000000000000000000000000"),
+  USDC_SEPOLIA_ADDRESS: z.string().default("0x0000000000000000000000000000000000000000"),
 });
 
 const parsed = schema.safeParse(process.env);

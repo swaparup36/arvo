@@ -1,5 +1,6 @@
 import { getSwapQuote } from "@/utils/1inch";
 import { claimInsurance, getInsurance, getPosition } from "@/utils/arvoMain";
+import { claimSettler } from "@/utils/claimSettler";
 import { NextResponse } from "next/server";
 
 // GET (claim the insurance)
@@ -55,6 +56,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         if (profitOrLoss > 0) { // profit
             // if a postion is in profit, the insurance can not be claimed, return an error
             return NextResponse.json({ error: "Insurance can not be claimed, position is in profit" }, { status: 400 });
+        }
+
+        // make sure the arvo main has the balance of tokenIn to settle the claim
+        const claimSettlerResult = await claimSettler(tokenInAddress, parseInt(chainId), amountIn);
+
+        if (!claimSettlerResult.success) {
+            return NextResponse.json({ error: claimSettlerResult.error }, { status: 500 });
         }
 
         // call the on chain claimInsurance function

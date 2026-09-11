@@ -103,5 +103,15 @@ export type getSwapQuoteRequest = {
     chainId: number;
     tokenIn: string;
     tokenOut: string;
-    amountIn: number;
+    amountIn: string;
+}
+
+export type GetSwapCallDataRequest = {
+    chainId: number;
+    tokenIn: string;
+    tokenOut: string;
+    amountIn: string;
+    from: string;
+    origin: string;
+    minAmountOut: string;
 }

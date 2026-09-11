@@ -690,7 +690,8 @@ export const ARVO_MAIN_ABI = [
 ];
 
 export const ERC20_ABI = [
-  "function decimals() view returns (uint8)"
+  "function decimals() view returns (uint8)",
+  "function balanceOf(address) view returns (uint256)"
 ];
 
 export const VAULT_CONTRACT_ABI = [

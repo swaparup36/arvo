@@ -18,34 +18,45 @@ export type WindowWithEthereum = Window & {
 
 type Eip1193WalletProvider = NonNullable<WindowWithEthereum["ethereum"]>;
 
-export async function connectWallet() {
-  const walletWindow = window as WindowWithEthereum;
-
-  if (typeof window === "undefined" || !walletWindow.ethereum) {
+function getWalletProvider(): Eip1193WalletProvider {
+  if (typeof window === "undefined") {
     throw new Error("A browser wallet like MetaMask is required.");
   }
 
-  const provider = new BrowserProvider(
-    walletWindow.ethereum as Eip1193WalletProvider,
-  );
-  const accounts = (await provider.send("eth_requestAccounts", [])) as string[];
+  const descriptor = Object.getOwnPropertyDescriptor(window, "ethereum");
 
-  return { provider, accounts };
+  if (descriptor && descriptor.configurable === false) {
+    throw new Error(
+      "A conflicting browser extension is already using window.ethereum. Disable the other wallet/extension and reload the page.",
+    );
+  }
+
+  const walletWindow = window as WindowWithEthereum;
+  const provider = walletWindow.ethereum;
+
+  if (!provider) {
+    throw new Error("A browser wallet like MetaMask is required.");
+  }
+
+  return provider as Eip1193WalletProvider;
+}
+
+export async function connectWallet() {
+  const provider = getWalletProvider();
+  const browserProvider = new BrowserProvider(provider);
+  const accounts = (await browserProvider.send(
+    "eth_requestAccounts",
+    [],
+  )) as string[];
+
+  return { provider: browserProvider, accounts };
 }
 
 export async function createVaultOnFactory(
   vaultName: string,
   selectedChainName: string,
 ) {
-  const walletWindow = window as WindowWithEthereum;
-
-  if (typeof window === "undefined" || !walletWindow.ethereum) {
-    throw new Error("Connect a wallet to continue.");
-  }
-
-  const provider = new BrowserProvider(
-    walletWindow.ethereum as Eip1193WalletProvider,
-  );
+  const provider = new BrowserProvider(getWalletProvider());
   const signer = await provider.getSigner();
   const signerAddress = await signer.getAddress();
   const chainId = (await provider.send("eth_chainId", [])) as string;
@@ -125,15 +136,7 @@ export async function executeVaultAction(
     throw new Error("Enter a valid amount.");
   }
 
-  const walletWindow = window as WindowWithEthereum;
-
-  if (typeof window === "undefined" || !walletWindow.ethereum) {
-    throw new Error("Connect a wallet to continue.");
-  }
-
-  const provider = new BrowserProvider(
-    walletWindow.ethereum as Eip1193WalletProvider,
-  );
+  const provider = new BrowserProvider(getWalletProvider());
   const signer = await provider.getSigner();
   const signerAddress = await signer.getAddress();
   const chainId = (await provider.send("eth_chainId", [])) as string;

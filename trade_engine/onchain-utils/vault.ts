@@ -16,7 +16,7 @@ export async function approveTokenOnVault(vaultAddress: string, token: string, s
   const receipt = await tx.wait();
 
   return {
-    txHash: receipt.hash,
+    txHash: receipt!.hash,
     receipt
   };
 }

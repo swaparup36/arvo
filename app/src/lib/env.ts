@@ -11,7 +11,7 @@ const schema = z.object({
   CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(60),
   BASE_MCP_URL: z.string().url().default("http://localhost:3000/mcp"),
   BASE_URL: z.string().url().default("http://localhost:3000"),
-  ARVO_MAIN_ADDRESS: z
+  ARVO_MAIN_SEPOLIA_ADDRESS: z
     .string()
     .default("0x0000000000000000000000000000000000000000"),
   VAULT_FACTORY_ADDRESS: z

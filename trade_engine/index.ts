@@ -1,26 +1,16 @@
 import { ARVO_BACKEND_URL, TRADE_CONFIRMATION_SECRET } from "./constants.js";
 import { approveTokenOnVault, executeOnVault } from "./onchain-utils/vault.js";
+import { resetNonce } from "./onchain-utils/onChainConfig.js";
 import { redis } from "./redis.js";
 import type { CreateTradeConfirmationRequest, TradeIntent } from "./types.js";
-import { getSwapCallData } from "./utils.js";
+import { CHAIN_TO_UNISWAP_PROXY, getQuote, getSwapCallData } from "./utils.js";
 
 export async function pipeLine(tradeIntent: TradeIntent) {
-    // get the call data for the swap from 1inch
-    const swapCallData = await getSwapCallData({
-        chainId: tradeIntent.chainId,
-        tokenIn: tradeIntent.tokenIn,
-        tokenOut: tradeIntent.tokenOut,
-        amountIn: tradeIntent.amountIn.toString(),
-        from: tradeIntent.userAddress,
-        origin: tradeIntent.agentAddress,
-        minAmountOut: tradeIntent.minAmountOut.toString(),
-    });
-
     const vaultAddress = tradeIntent.vaultAddress;
     const chainId = tradeIntent.chainId;
-    const routerAddress = swapCallData.tx.to;
+    const proxyContractAddress = CHAIN_TO_UNISWAP_PROXY[chainId]!;
 
-    const approveZeroTx = await approveTokenOnVault(vaultAddress, tradeIntent.tokenIn, routerAddress, 0n, chainId);
+    const approveZeroTx = await approveTokenOnVault(vaultAddress, tradeIntent.tokenIn, proxyContractAddress, 0n, chainId);
 
     if (!approveZeroTx.txHash) {
         console.error("Failed to set allowance to zero on vault");
@@ -29,7 +19,7 @@ export async function pipeLine(tradeIntent: TradeIntent) {
 
     console.log("Allowance set to zero on vault with hash:", approveZeroTx.txHash, ". Proceeding with approval...");
 
-    const approveTx = await approveTokenOnVault(vaultAddress, tradeIntent.tokenIn, routerAddress, tradeIntent.amountIn, chainId);
+    const approveTx = await approveTokenOnVault(vaultAddress, tradeIntent.tokenIn, proxyContractAddress, tradeIntent.amountIn, chainId);
 
     if (!approveTx.txHash) {
         console.error("Failed to approve token on vault");
@@ -38,7 +28,38 @@ export async function pipeLine(tradeIntent: TradeIntent) {
 
     console.log("Token approved on vault with hash:", approveTx.txHash, ". Proceeding with swap...");
 
-    const swapTx = await executeOnVault(vaultAddress, routerAddress, 0n, swapCallData.tx.data, chainId);
+    const swapQuote = await getQuote({
+        chainId: tradeIntent.chainId,
+        tokenIn: tradeIntent.tokenIn,
+        tokenOut: tradeIntent.tokenOut,
+        amountIn: tradeIntent.amountIn.toString(),
+        vaultAddress: tradeIntent.vaultAddress,
+    });
+
+    if (!swapQuote) {
+        console.error("Failed to get swap quote from Uniswap API");
+        return;
+    }
+
+    // get the amount out from the quote and convert it to bigint
+    const amountOut = BigInt(swapQuote.quote.output.amount);
+
+    console.log("minAmountOut: ", tradeIntent.minAmountOut.toString());
+    console.log("amountOut: ", amountOut.toString());
+
+    if (amountOut < tradeIntent.minAmountOut) {
+        console.error("Swap quote amount out is less than the minimum amount out specified in the trade intent");
+        return;
+    }
+
+    const swapCallData = await getSwapCallData(swapQuote.quote);
+
+    if (!swapCallData) {
+        console.error("Failed to get swap call data from Uniswap API");
+        return;
+    }
+
+    const swapTx = await executeOnVault(vaultAddress, proxyContractAddress, 0n, swapCallData.data, chainId);
 
     if (!swapTx.txHash) {
         console.error("Failed to execute swap on vault");
@@ -55,7 +76,7 @@ export async function pipeLine(tradeIntent: TradeIntent) {
         tokenIn: tradeIntent.tokenIn,
         tokenOut: tradeIntent.tokenOut,
         amountIn: tradeIntent.amountIn,
-        amountOut: BigInt(swapCallData.dstAmount),
+        amountOut: amountOut,
         signature: tradeIntent.signature,
         executedAt: new Date(),
     };
@@ -98,6 +119,7 @@ async function main() {
             console.log("Trade intent processed successfully:", tradeIntent.id);
         } catch (error) {
             console.error("Error processing trade intent:", tradeIntent.id, error);
+            resetNonce(tradeIntent.chainId);
         }
     }
 }

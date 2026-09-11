@@ -8,37 +8,75 @@ import {
 
 export type WindowWithEthereum = Window & {
   ethereum?: {
+    providers?: Array<{
+      request: (request: {
+        method: string;
+        params?: unknown[] | Record<string, unknown>;
+      }) => Promise<unknown>;
+      send?: (method: string, params: unknown[]) => Promise<unknown>;
+      isMetaMask?: boolean;
+      isPhantom?: boolean;
+      isBackpack?: boolean;
+    }>;
     request: (request: {
       method: string;
       params?: unknown[] | Record<string, unknown>;
     }) => Promise<unknown>;
     send?: (method: string, params: unknown[]) => Promise<unknown>;
+    isMetaMask?: boolean;
+    isPhantom?: boolean;
+    isBackpack?: boolean;
+  };
+  phantom?: {
+    ethereum?: {
+      request: (request: {
+        method: string;
+        params?: unknown[] | Record<string, unknown>;
+      }) => Promise<unknown>;
+      send?: (method: string, params: unknown[]) => Promise<unknown>;
+      isPhantom?: boolean;
+    };
+  };
+  backpack?: {
+    ethereum?: {
+      request: (request: {
+        method: string;
+        params?: unknown[] | Record<string, unknown>;
+      }) => Promise<unknown>;
+      send?: (method: string, params: unknown[]) => Promise<unknown>;
+      isBackpack?: boolean;
+    };
   };
 };
 
 type Eip1193WalletProvider = NonNullable<WindowWithEthereum["ethereum"]>;
 
-function getWalletProvider(): Eip1193WalletProvider {
+export function getWalletProvider(): Eip1193WalletProvider {
   if (typeof window === "undefined") {
     throw new Error("A browser wallet like MetaMask is required.");
   }
 
-  const descriptor = Object.getOwnPropertyDescriptor(window, "ethereum");
-
-  if (descriptor && descriptor.configurable === false) {
-    throw new Error(
-      "A conflicting browser extension is already using window.ethereum. Disable the other wallet/extension and reload the page.",
-    );
-  }
-
   const walletWindow = window as WindowWithEthereum;
-  const provider = walletWindow.ethereum;
+  const providerCandidates = [
+    ...(Array.isArray(walletWindow.ethereum?.providers)
+      ? walletWindow.ethereum.providers
+      : []),
+    walletWindow.ethereum,
+    walletWindow.phantom?.ethereum,
+    walletWindow.backpack?.ethereum,
+  ].filter(Boolean) as Eip1193WalletProvider[];
 
-  if (!provider) {
+  const preferredProvider =
+    providerCandidates.find((provider) => provider.isMetaMask) ??
+    providerCandidates.find((provider) => provider.isPhantom) ??
+    providerCandidates.find((provider) => provider.isBackpack) ??
+    providerCandidates[0];
+
+  if (!preferredProvider) {
     throw new Error("A browser wallet like MetaMask is required.");
   }
 
-  return provider as Eip1193WalletProvider;
+  return preferredProvider;
 }
 
 export async function connectWallet() {
@@ -52,11 +90,84 @@ export async function connectWallet() {
   return { provider: browserProvider, accounts };
 }
 
+export async function ensureWalletOnChain(selectedChainName: string) {
+  const provider = getWalletProvider();
+  const browserProvider = new BrowserProvider(provider);
+  const chainId = (await browserProvider.send("eth_chainId", [])) as string;
+  const expectedChainId = chainIdMap[selectedChainName] ?? chainIdMap.Base;
+
+  if (Number(chainId).toString() === expectedChainId) {
+    return;
+  }
+
+  const chainHex = `0x${Number(expectedChainId).toString(16)}`;
+
+  try {
+    await provider.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: chainHex }],
+    });
+  } catch (error) {
+    const switchError = error as { code?: number; message?: string };
+
+    if (switchError.code === 4902) {
+      throw new Error(
+        `Add or switch your wallet to ${selectedChainName} before continuing.`,
+      );
+    }
+
+    throw new Error(
+      `Unable to switch your wallet to ${selectedChainName}. ${switchError.message ?? ""}`.trim(),
+    );
+  }
+}
+
+export async function getUserVaultsForChain(
+  selectedChainName: string,
+  userAddress?: string,
+): Promise<string[]> {
+  if (!userAddress) {
+    return [];
+  }
+
+  const provider = new BrowserProvider(getWalletProvider());
+  const signerAddress =
+    userAddress || (await provider.getSigner()).getAddress();
+  const chainId = (await provider.send("eth_chainId", [])) as string;
+  const expectedChainId = chainIdMap[selectedChainName] ?? chainIdMap.Base;
+
+  if (Number(chainId).toString() !== expectedChainId) {
+    await ensureWalletOnChain(selectedChainName);
+  }
+
+  const factoryAddress =
+    process.env.NEXT_PUBLIC_VAULT_FACTORY_ADDRESS ??
+    process.env.VAULT_FACTORY_ADDRESS ??
+    "0x5eE27A4EE0D186309615d799F20c1f45CC4E350D";
+
+  if (
+    !factoryAddress ||
+    factoryAddress === "0x0000000000000000000000000000000000000000"
+  ) {
+    return [];
+  }
+
+  const factoryContract = new Contract(
+    factoryAddress,
+    ["function getUserVaults(address user) view returns(address[])"],
+    provider,
+  );
+
+  const userVaults = await factoryContract.getUserVaults(signerAddress);
+  return userVaults.filter((vaultAddress: string) => Boolean(vaultAddress));
+}
+
 export async function createVaultOnFactory(
   vaultName: string,
   selectedChainName: string,
 ) {
   const provider = new BrowserProvider(getWalletProvider());
+  await ensureWalletOnChain(selectedChainName);
   const signer = await provider.getSigner();
   const signerAddress = await signer.getAddress();
   const chainId = (await provider.send("eth_chainId", [])) as string;
@@ -71,9 +182,12 @@ export async function createVaultOnFactory(
 
   const factoryAddress =
     process.env.NEXT_PUBLIC_VAULT_FACTORY_ADDRESS ??
-    process.env.VAULT_FACTORY_ADDRESS;
+    process.env.VAULT_FACTORY_ADDRESS ??
+    "0x5eE27A4EE0D186309615d799F20c1f45CC4E350D";
   const arvoMainAddress =
-    process.env.NEXT_PUBLIC_ARVO_MAIN_ADDRESS ?? process.env.ARVO_MAIN_ADDRESS;
+    process.env.NEXT_PUBLIC_ARVO_MAIN_ADDRESS ??
+    process.env.ARVO_MAIN_ADDRESS ??
+    "0x9B0A01AAAD0006de776A9CDA6EA8eABc4361a69c";
 
   if (!factoryAddress || !arvoMainAddress) {
     throw new Error(
@@ -93,7 +207,9 @@ export async function createVaultOnFactory(
   const factoryContract = new Contract(
     factoryAddress,
     [
+      "event VaultCreatedSuccessfully(address indexed user, address indexed vaultAddress)",
       "function createVault(string _vaultName, address _arvoProto, address _executor) returns(address)",
+      "function getUserVaults(address user) view returns(address[])",
     ],
     signer,
   );
@@ -103,25 +219,21 @@ export async function createVaultOnFactory(
     arvoMainAddress,
     signerAddress,
   );
-  const receipt = await tx.wait();
 
-  const event = receipt?.logs
-    ?.map((log: { topics?: string[]; data?: string }) => {
-      if (!log?.topics?.length) return null;
-      return log;
-    })
-    .find(() => true);
+  await tx.wait();
 
-  if (!event) {
-    return {
-      signerAddress,
-      vaultAddress: "0x0000000000000000000000000000000000000000",
-    };
+  const userVaults = await factoryContract.getUserVaults(signerAddress);
+  const createdVault = userVaults[userVaults.length - 1];
+
+  if (!createdVault) {
+    throw new Error(
+      "Vault was submitted but no address was returned from the factory.",
+    );
   }
 
   return {
     signerAddress,
-    vaultAddress: "0x0000000000000000000000000000000000000000",
+    vaultAddress: createdVault,
   };
 }
 

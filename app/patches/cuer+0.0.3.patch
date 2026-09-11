@@ -1,0 +1,26 @@
+diff --git a/node_modules/cuer/QrCode.ts b/node_modules/cuer/QrCode.ts
+index 9d29de4..c0b4257 100644
+--- a/node_modules/cuer/QrCode.ts
++++ b/node_modules/cuer/QrCode.ts
+@@ -11,7 +11,7 @@ export function create(value: string, options: QrCode.Options = {}): QrCode {
+   const { errorCorrection, version } = options
+ 
+   const grid = encodeQR(value, 'raw', {
+-    border: 0,
++    border: 1,
+     ecc: errorCorrection,
+     scale: 1,
+     version: version,
+diff --git a/node_modules/cuer/_dist/QrCode.js b/node_modules/cuer/_dist/QrCode.js
+index b180652..c594a0c 100644
+--- a/node_modules/cuer/_dist/QrCode.js
++++ b/node_modules/cuer/_dist/QrCode.js
+@@ -2,7 +2,7 @@ import { encodeQR } from 'qr';
+ export function create(value, options = {}) {
+     const { errorCorrection, version } = options;
+     const grid = encodeQR(value, 'raw', {
+-        border: 0,
++        border: 1,
+         ecc: errorCorrection,
+         scale: 1,
+         version: version,

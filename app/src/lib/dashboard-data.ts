@@ -6,10 +6,17 @@ import type {
   Vault,
 } from "@/types/dashboard";
 
-export const chainOptions = ["Ethereum", "Base", "Arbitrum", "Optimism"];
+export const chainOptions = [
+  "Ethereum",
+  "Sepolia",
+  "Base",
+  "Arbitrum",
+  "Optimism",
+];
 
 export const chainIdMap: Record<string, string> = {
   Ethereum: "1",
+  Sepolia: "11155111",
   Base: "8453",
   Arbitrum: "42161",
   Optimism: "10",
@@ -29,6 +36,12 @@ export const tokenAddressesByChain: Record<string, Record<string, string>> = {
     USDC: "0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
     WBTC: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
     ARB: "0xB50721BCf8d664c30412Cfbc6cf7a15145234ad1",
+  },
+  Sepolia: {
+    ETH: "0x0000000000000000000000000000000000000000",
+    USDC: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+    WBTC: "0x0000000000000000000000000000000000000000",
+    ARB: "0x0000000000000000000000000000000000000000",
   },
   Base: {
     ETH: "0x0000000000000000000000000000000000000000",

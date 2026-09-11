@@ -2,9 +2,9 @@ import { ARVO_BACKEND_URL, TRADE_CONFIRMATION_SECRET } from "./constants.js";
 import { approveTokenOnVault, executeOnVault } from "./onchain-utils/vault.js";
 import { redis } from "./redis.js";
 import type { CreateTradeConfirmationRequest, TradeIntent } from "./types.js";
-import { getApproveCallData, getRouterAddress, getSwapCallData } from "./utils.js";
+import { getSwapCallData } from "./utils.js";
 
-async function pipeLine(tradeIntent: TradeIntent) {
+export async function pipeLine(tradeIntent: TradeIntent) {
     // get the call data for the swap from 1inch
     const swapCallData = await getSwapCallData({
         chainId: tradeIntent.chainId,
@@ -16,30 +16,20 @@ async function pipeLine(tradeIntent: TradeIntent) {
         minAmountOut: tradeIntent.minAmountOut.toString(),
     });
 
-    // get the router address from 1inch
-    const routerAddress = await getRouterAddress(tradeIntent.chainId);
-
     const vaultAddress = tradeIntent.vaultAddress;
     const chainId = tradeIntent.chainId;
+    const routerAddress = swapCallData.tx.to;
 
-    // TODO: set the allowance to zero for the router address to spend the tokenIn from the vault address
-    const approveZeroCallData = await approveTokenOnVault(vaultAddress, tradeIntent.tokenIn, routerAddress, 0n, chainId);
+    const approveZeroTx = await approveTokenOnVault(vaultAddress, tradeIntent.tokenIn, routerAddress, 0n, chainId);
 
-    if (!approveZeroCallData.txHash) {
+    if (!approveZeroTx.txHash) {
         console.error("Failed to set allowance to zero on vault");
         return;
     }
 
-    console.log("Allowance set to zero on vault with hash:", approveZeroCallData.txHash, ". Proceeding with approval...");
+    console.log("Allowance set to zero on vault with hash:", approveZeroTx.txHash, ". Proceeding with approval...");
 
-    // get the approve call data for the router address to spend the tokenIn from the vault address
-    const approveCallData = await getApproveCallData({
-        chainId: tradeIntent.chainId,
-        tokenAddress: tradeIntent.tokenIn,
-        amount: tradeIntent.amountIn.toString(),
-    });
-
-    const approveTx = await executeOnVault(vaultAddress, routerAddress, 0n, approveCallData, chainId);
+    const approveTx = await approveTokenOnVault(vaultAddress, tradeIntent.tokenIn, routerAddress, tradeIntent.amountIn, chainId);
 
     if (!approveTx.txHash) {
         console.error("Failed to approve token on vault");
@@ -48,7 +38,7 @@ async function pipeLine(tradeIntent: TradeIntent) {
 
     console.log("Token approved on vault with hash:", approveTx.txHash, ". Proceeding with swap...");
 
-    const swapTx = await executeOnVault(vaultAddress, routerAddress, 0n, swapCallData, chainId);
+    const swapTx = await executeOnVault(vaultAddress, routerAddress, 0n, swapCallData.tx.data, chainId);
 
     if (!swapTx.txHash) {
         console.error("Failed to execute swap on vault");
@@ -65,7 +55,7 @@ async function pipeLine(tradeIntent: TradeIntent) {
         tokenIn: tradeIntent.tokenIn,
         tokenOut: tradeIntent.tokenOut,
         amountIn: tradeIntent.amountIn,
-        amountOut: BigInt(swapCallData.toTokenAmount),
+        amountOut: BigInt(swapCallData.dstAmount),
         signature: tradeIntent.signature,
         executedAt: new Date(),
     };
@@ -76,7 +66,8 @@ async function pipeLine(tradeIntent: TradeIntent) {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${TRADE_CONFIRMATION_SECRET}`,
         },
-        body: JSON.stringify(tradeConfirmationRequest),
+        // bigint has no JSON representation; send amounts as decimal strings
+        body: JSON.stringify(tradeConfirmationRequest, (_, v) => typeof v === "bigint" ? v.toString() : v),
     });
 
     if (!response.ok) {
@@ -111,6 +102,8 @@ async function main() {
     }
 }
 
-main().catch((error) => {
-    console.error("Error in trade engine:", error);
-});
+if (import.meta.main) {
+    main().catch((error) => {
+        console.error("Error in trade engine:", error);
+    });
+}

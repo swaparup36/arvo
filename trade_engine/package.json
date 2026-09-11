@@ -5,7 +5,9 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc --outDir dist",
+    "start": "node dist/index.js",
+    "test": "tsc --outDir dist && node --experimental-test-module-mocks --test dist/test/pipeline.test.js"
   },
   "keywords": [],
   "author": "",

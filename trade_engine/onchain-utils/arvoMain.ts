@@ -1,0 +1,7 @@
+import { ARVO_MAIN_ETH_ADDRESS, ARVO_MAIN_SEPOLIA_ADDRESS } from "../constants.js";
+
+
+export const CHAIN_TO_ARVO_MAIN_ADDRESS: Record<number, string> = {
+  1: ARVO_MAIN_ETH_ADDRESS,
+  11155111: ARVO_MAIN_SEPOLIA_ADDRESS,
+};

@@ -1,5 +1,6 @@
 import { getInsurance, getPosition } from "@/utils/arvoMain";
 import { NextResponse } from "next/server";
+import { toSerializable } from "@/lib/serialize";
 
 // GET (fetch position details insuranceId and chain ID)
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -24,7 +25,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             return NextResponse.json({ error: "Position not found" }, { status: 404 });
         }
 
-        return NextResponse.json({ position }, { status: 200 });
+        return NextResponse.json({ position: toSerializable(position) }, { status: 200 });
     } catch (error) {
         console.log("Error fetching position details:", error);
         return NextResponse.json({ error: "Failed to fetch position details" }, { status: 500 });

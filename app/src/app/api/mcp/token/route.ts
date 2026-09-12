@@ -4,7 +4,11 @@ import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
-    const { grant_type, code, redirect_uri, client_id, code_verifier } = (await req.json()) || {};
+    // OAuth token endpoint is form-encoded per RFC 6749; some clients still send JSON
+    const body = req.headers.get("content-type")?.includes("json")
+      ? await req.json()
+      : Object.fromEntries(await req.formData());
+    const { grant_type, code, redirect_uri, client_id, code_verifier } = body || {};
 
     const headers = new Headers({ "Cache-Control": "no-store" });
 

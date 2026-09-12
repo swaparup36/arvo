@@ -42,3 +42,14 @@ export function getVaultContract(vaultAddress: string, chainId: number): ethers.
 
   return vaultInstances[chainId][vaultAddress];
 }
+
+export async function getBlockTimestamp(chainId: number): Promise<number> {
+  const provider = new ethers.JsonRpcProvider(RPC_URLS[chainId]);
+  const latestBlock = await provider.getBlock("latest");
+
+  if (!latestBlock) {
+    throw new Error("Could not fetch latest block");
+  }
+
+  return latestBlock.timestamp;
+}

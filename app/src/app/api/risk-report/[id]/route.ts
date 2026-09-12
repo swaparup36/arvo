@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getRiskAssessment } from "@/utils/arvoMain";
+import { toSerializable } from "@/lib/serialize";
 
 // GET (fetch risk report by risk report ID)
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -34,7 +35,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             return NextResponse.json({ error: "Risk report not found on chain" }, { status: 404 });
         }
 
-        return NextResponse.json({ riskReport }, { status: 200 });
+        return NextResponse.json({ riskReport: toSerializable(riskReport) }, { status: 200 });
     } catch (error) {
         console.log("Error fetching risk report:", error);
         return NextResponse.json({ error: "Failed to fetch risk report" }, { status: 500 });

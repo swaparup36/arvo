@@ -1,6 +1,7 @@
 import { Address } from "viem";
 
 export type CreateTradeIntentRequest = {
+    id: string;
     userAddress: string;
     agentAddress: string;
     vaultAddress: string;
@@ -8,13 +9,13 @@ export type CreateTradeIntentRequest = {
 
     tokenIn: string;
     tokenOut: string;
-    amountIn: number;
-    minAmountOut: number;
-    deadline: string;
+    amountIn: string;
+    minAmountOut: string;
+    deadline: number;
 
-    maxPremium: number;
+    maxPremium: string;
     minCoverage: number;
-    minCoverageDuration: bigint;
+    minCoverageDuration: number;
 
     signature: string;
 }
@@ -38,16 +39,18 @@ export type OnChainSubmitTradeIntentStruct = {
 }
 
 export type CreateRiskReportRequest = {
+    id: string; // uuid minted and signed by the risk engine
+
     intentId: string;
 
-    riskScore: number;
-    premium: number;
-    coverage: number;
-    coverageDuration: bigint;
+    riskScore: number; // integer 0-100
+    premium: string; // premium token base units
+    coverage: number; // integer 0-100
+    coverageDuration: string; // seconds
 
     signature: string;
-    assessedAt: Date;
-    expiresAt: Date;
+    assessedAt: number; // unix seconds
+    expiresAt: number; // unix seconds
 
     assessmentHash: string;
 }
@@ -66,6 +69,7 @@ export type OnChainSubmitRiskAssessmentStruct = {
 }
 
 export type CreateTradeConfirmationRequest = {
+    id: string;
     intentId: string;
 
     transactionHash: string;
@@ -74,8 +78,8 @@ export type CreateTradeConfirmationRequest = {
     tokenIn: string;
     tokenOut: string;
 
-    amountIn: bigint;
-    amountOut: bigint;
+    amountIn: string;
+    amountOut: string;
 
     signature: string;
     executedAt: Date;

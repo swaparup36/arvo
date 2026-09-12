@@ -3,6 +3,7 @@ import { claimInsurance, getInsurance, getPosition } from "@/utils/arvoMain";
 import { claimSettler } from "@/utils/claimSettler";
 import { NextResponse } from "next/server";
 import { GetQuoteParams } from "@/types/schema";
+import { toSerializable } from "@/lib/serialize";
 
 // GET (claim the insurance)
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -74,7 +75,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             return NextResponse.json({ error: "Failed to claim insurance" }, { status: 500 });
         }
 
-        return NextResponse.json({ message: "Insurance claimed successfully", txHash, receipt }, { status: 200 });
+        return NextResponse.json({ message: "Insurance claimed successfully", txHash, receipt: toSerializable(receipt) }, { status: 200 });
     } catch (error) {
         console.log("Error fetching insurance details:", error);
         return NextResponse.json({ error: "Failed to fetch insurance details" }, { status: 500 });

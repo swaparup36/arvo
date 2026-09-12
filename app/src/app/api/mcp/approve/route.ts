@@ -89,12 +89,13 @@ export async function POST(req: Request) {
                 );
             }
 
-            // generate a new wallet address for the agent
+            // Create a new agent for the user
             const agentWallet = ethers.Wallet.createRandom();
 
-            // creat a new agent
-            const agent = await prisma.agent.create({
-                data: {
+            await prisma.agent.upsert({
+                where: { userId: existingUser.id },
+                update: { id: clientId, vaultAddress },
+                create: {
                     id: clientId,
                     userId: existingUser.id,
                     address: agentWallet.address,
@@ -103,18 +104,10 @@ export async function POST(req: Request) {
                 },
             });
 
-            if (!agent) {
-                return NextResponse.json(
-                    { message: "Failed to approve agent" },
-                    { status: 500 }
-                );
-            }
-
-            const token = createToken(existingUser.id, clientId);
-    
-            apiToken = token;
-        } catch {
-            return NextResponse.json({ error: "Could not reach the todo API" }, { status: 502 });
+            apiToken = createToken(existingUser.id, clientId);
+        } catch (error) {
+            console.error("Error approving agent:", error);
+            return NextResponse.json({ error: "Failed to approve agent" }, { status: 502 });
         }
 
         await redis.del(`pendingAuth:${key}`);

@@ -1,21 +1,21 @@
 export type TradeIntent = {
-    id: string;
-    userAddress: string;
-    agentAddress: string;
-    vaultAddress: string;
-    chainId: number;
-    tokenIn: string;
-    tokenOut: string;
-    amountIn: bigint;
-    minAmountOut: bigint;
-    deadline: Date;
-    maxPremium: bigint;
-    minCoverage: number; // in percentage
-    minCoverageDuration: bigint; // in seconds
-    signature: string;
-    status: string;
-    createdAt: Date;
-    updatedAt: Date;
+  id: string;
+  userAddress: string;
+  agentAddress: string;
+  vaultAddress: string;
+  chainId: number;
+  tokenIn: string;
+  tokenOut: string;
+  amountIn: bigint;
+  minAmountOut: bigint;
+  deadline: Date;
+  maxPremium: bigint;
+  minCoverage: number; // in percentage
+  minCoverageDuration: bigint; // in seconds
+  signature: string;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export type getSwapApprovalReq = {
@@ -82,6 +82,7 @@ export type UniswapQuoteResponse = {
 
 
 export type CreateTradeConfirmationRequest = {
+  id: string;
   intentId: string;
 
   transactionHash: string;
@@ -90,8 +91,8 @@ export type CreateTradeConfirmationRequest = {
   tokenIn: string;
   tokenOut: string;
 
-  amountIn: bigint;
-  amountOut: bigint;
+  amountIn: string;
+  amountOut: string;
 
   signature: string;
   executedAt: Date;

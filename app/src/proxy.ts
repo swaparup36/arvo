@@ -92,8 +92,7 @@ function tradeIndentMiddleware(request: NextRequest) {
     return NextResponse.next();
 }
 
-// Without this header the client cannot discover where our OAuth metadata lives
-// and falls back to probing the origin root, which 404s.
+// Returns a 401 response with the WWW-Authenticate header set to indicate that the resource is protected and requires a Bearer token for access
 function unauthorized() {
     return NextResponse.json(
         { error: "unauthorized" },
@@ -133,8 +132,7 @@ async function mcpAuthMiddleware(request: NextRequest) {
         return unauthorized();
     }
 
-    // Mutating request.headers here does not reach the route handler; the header
-    // has to be handed forward on the response.
+    // mutate the request headers to include the API token for the downstream handler
     const headers = new Headers(request.headers);
     headers.set("x-api-token", tokenData.apiToken);
 
@@ -152,7 +150,7 @@ export function proxy(request: NextRequest) {
         return tradeConfirmationMiddleware(request);
     }
 
-    if (path.startsWith("/api/trade-indent")) {
+    if (path === "/api/trade-intent") {
         return tradeIndentMiddleware(request);
     }
 

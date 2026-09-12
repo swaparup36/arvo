@@ -6,6 +6,9 @@ import { prisma } from "@/lib/prisma";
 import { verifyToken } from "@/lib/jwt";
 import { ethers } from "ethers";
 import { CreateTradeIntentRequest } from "../../../../types/schema";
+import { getQuote } from "@/utils/uniswap";
+import { CHAIN_TO_ARVO_MAIN_ADDRESS } from "@/utils/arvoMain";
+import { getTokenDecimals } from "@/utils/erc20";
 
 function createServer(apiToken: string) {
   const server = new McpServer({
@@ -23,23 +26,24 @@ function createServer(apiToken: string) {
         chainId: z.number().describe("Chain ID of the blockchain network"),
         tokenIn: z.string().describe("Address of the input token for swap"),
         tokenOut: z.string().describe("Address of the output token for swap"),
-        amountIn: z.number().describe("Amount of input token to swap"),
+        amountIn: z.number().describe("Amount of input token to swap in human readable format"),
         minAmountOut: z
           .number()
-          .describe("Minimum amount of output token to receive"),
+          .describe("Minimum amount of output token to receive in human readable format"),
         deadline: z
           .string()
           .describe("Deadline for the trade in ISO 8601 format"),
         maxPremium: z
           .number()
-          .describe("Maximum premium to pay for the trade insurance"),
+          .describe("Maximum premium to pay for the trade insurance in USDC in human readable format"),
         minCoverage: z
           .number()
           .describe(
             "Minimum coverage required for the trade insurance in percentage (1-100)",
           ),
         minCoverageDuration: z
-          .bigint()
+          .number()
+          .int()
           .describe("Minimum duration of the coverage in seconds"),
       },
     },
@@ -80,40 +84,99 @@ function createServer(apiToken: string) {
         }
 
         // sign the trade data with the agent's private key
-        const tradeData = {
+        const id = crypto.randomUUID();
+
+        const agentWallet = new ethers.Wallet(agent.privateKey);
+
+        // EIP-712 domain
+        const domain = {
+          name: "ArvoMain",
+          version: "1",
           chainId,
+          verifyingContract: CHAIN_TO_ARVO_MAIN_ADDRESS[chainId],
+        };
+
+        // EIP-712 types
+        const types = {
+          TradeIntent: [
+            { name: "id", type: "string" },
+            { name: "userAddress", type: "address" },
+            { name: "agentAddress", type: "address" },
+            { name: "vaultAddress", type: "address" },
+            { name: "tokenIn", type: "address" },
+            { name: "tokenOut", type: "address" },
+            { name: "amountIn", type: "uint256" },
+            { name: "minAmountOut", type: "uint256" },
+            { name: "deadline", type: "uint256" },
+            { name: "maxPremium", type: "uint256" },
+            { name: "minCoverage", type: "uint32" },
+            { name: "minCoverageDuration", type: "uint256" },
+          ],
+        };
+
+        const tokenInDecimals = await getTokenDecimals(tokenIn, chainId);
+        const tokenOutDecimals = await getTokenDecimals(tokenOut, chainId);
+
+        const amountInWei = ethers.parseUnits(
+          amountIn.toString(),
+          tokenInDecimals
+        );
+
+        const minAmountOutWei = ethers.parseUnits(
+          minAmountOut.toString(),
+          tokenOutDecimals
+        );
+
+        const maxPremiumWei = ethers.parseUnits(
+          maxPremium.toString(),
+          6
+        );
+
+        const deadlineTimestamp = Math.floor(
+          new Date(deadline).getTime() / 1000
+        );
+
+        // must contain the exact values that will be submitted on-chain
+        const value = {
+          id,
+          userAddress: agent.address,
+          agentAddress: agent.address,
+          vaultAddress: agent.vaultAddress,
           tokenIn,
           tokenOut,
-          amountIn,
-          minAmountOut,
-          deadline,
-          maxPremium,
+          amountIn: amountInWei,
+          minAmountOut: minAmountOutWei,
+          deadline: deadlineTimestamp,
+          maxPremium: maxPremiumWei,
           minCoverage,
           minCoverageDuration,
         };
 
-        const agentWallet = new ethers.Wallet(agent.privateKey);
-        const signedTradeData = await agentWallet.signMessage(
-          JSON.stringify(tradeData),
+        // sign using EIP-712
+        const signedTradeData = await agentWallet.signTypedData(
+          domain,
+          types,
+          value,
         );
 
         const createTradeIntentRequest: CreateTradeIntentRequest = {
+          id,
           userAddress: agent.address,
           agentAddress: agent.address,
           vaultAddress: agent.vaultAddress,
           chainId,
           tokenIn,
           tokenOut,
-          amountIn,
-          minAmountOut,
-          deadline,
-          maxPremium,
+          amountIn: amountInWei.toString(),
+          minAmountOut: minAmountOutWei.toString(),
+          deadline: deadlineTimestamp,
+          maxPremium: maxPremiumWei.toString(),
           minCoverage,
           minCoverageDuration,
           signature: signedTradeData,
         };
 
-        const res = await fetch(`${env.BASE_URL}/trade-intent`, {
+        const res = await fetch(`${env.BASE_URL}/api/trade-intent`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${apiToken}`,
@@ -145,6 +208,7 @@ function createServer(apiToken: string) {
           ],
         };
       } catch (err) {
+        console.error("Error posting trade intent:", err);
         return {
           content: [
             {
@@ -204,7 +268,7 @@ function createServer(apiToken: string) {
 
         // fetch the balance from the vault API
         const res = await fetch(
-          `${env.BASE_URL}/vault/get-vault-balance?vaultAddress=${vaultAddress}&chainId=${chainId}&asset=${tokenAddress}`,
+          `${env.BASE_URL}/api/vault/get-vault-balance?vaultAddress=${vaultAddress}&chainId=${chainId}&asset=${tokenAddress}`,
           {
             method: "GET",
           },
@@ -287,7 +351,7 @@ function createServer(apiToken: string) {
 
         // fetch the token addresses from the vault API
         const res = await fetch(
-          `${env.BASE_URL}/vault/get-all-tokens?vaultAddress=${vaultAddress}&chainId=${chainId}`,
+          `${env.BASE_URL}/api/vault/get-all-tokens?vaultAddress=${vaultAddress}&chainId=${chainId}`,
           {
             method: "GET",
           },
@@ -331,6 +395,77 @@ function createServer(apiToken: string) {
     },
   );
 
+  // get quote for a pair of tokens
+  server.registerTool(
+    "get-quote",
+    {
+      title: "Get Quote for Token Pair",
+      description: "Get a quote for swapping a pair of tokens",
+      inputSchema: {
+        chainId: z.number().describe("Chain ID of the blockchain network"),
+        tokenIn: z.string().describe("Address of the input token"),
+        tokenOut: z.string().describe("Address of the output token"),
+        amountIn: z.number().describe("Amount of input token to swap in wei"),
+      },
+    },
+    async ({ chainId, tokenIn, tokenOut, amountIn }) => {
+      try {
+        const decoded = verifyToken(apiToken);
+        const { userId, agentId } = decoded as {
+          userId: string;
+          agentId?: string;
+        };
+        const agent = await prisma.agent.findFirst({
+          where: {
+            userId: userId,
+            id: agentId,
+          },
+        });
+
+        if (!agent) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "Agent not found for the provided userId and agentId",
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        const quoteResponse = await getQuote({
+          chainId: chainId,
+          tokenIn: tokenIn,
+          tokenOut: tokenOut,
+          amountIn: amountIn.toString(),
+          vaultAddress: agent.vaultAddress,
+        });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Quote fetched successfully: ${JSON.stringify(quoteResponse, null, 2)}`,
+            },
+          ],
+        };
+      } catch (err) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Failed to get quote: ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    },
+  );
+
   return server;
 }
 
@@ -356,12 +491,34 @@ export async function POST(req: Request) {
     sessionIdGenerator: undefined,
   });
 
+  const close = async () => {
+    await server.close();
+    await transport.close();
+  };
+
   try {
     const body = await req.json();
     await server.connect(transport);
-    return await transport.handleRequest(req, { parsedBody: body });
+    const response = await transport.handleRequest(req, { parsedBody: body });
+
+    if (!response.body) {
+      await close();
+      return response;
+    }
+
+    req.signal.addEventListener("abort", () => void close());
+
+    return new Response(
+      response.body.pipeThrough(new TransformStream({ flush: close })),
+      {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      },
+    );
   } catch (err) {
     console.error("MCP request error:", err);
+    await close();
     return new Response(
       JSON.stringify({
         jsonrpc: "2.0",
@@ -373,9 +530,6 @@ export async function POST(req: Request) {
         headers: { "Content-Type": "application/json" },
       },
     );
-  } finally {
-    await server.close();
-    await transport.close();
   }
 }
 

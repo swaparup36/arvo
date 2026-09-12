@@ -23,7 +23,7 @@ export async function GET(req: Request) {
 
         const blance = await availableBalance(vaultAddress, asset, Number(chainId));
 
-        return NextResponse.json({ balance: blance }, { status: 200 });
+        return NextResponse.json({ balance: blance.toString() }, { status: 200 });
     } catch (error) {
         console.log("Error fetching vault balance:", error);
         return NextResponse.json({ error: "Failed to fetch vault balance" }, { status: 500 });

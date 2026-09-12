@@ -187,7 +187,7 @@ export async function createVaultOnFactory(
   const arvoMainAddress =
     process.env.NEXT_PUBLIC_ARVO_MAIN_ADDRESS ??
     process.env.ARVO_MAIN_ADDRESS ??
-    "0x9B0A01AAAD0006de776A9CDA6EA8eABc4361a69c";
+    "0xf42fFc447EbA5113809597B1aA66D8998d5260dF";
 
   if (!factoryAddress || !arvoMainAddress) {
     throw new Error(

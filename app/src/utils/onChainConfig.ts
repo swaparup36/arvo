@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
 import { env } from "../lib/env";
-import { ARVO_MAIN_ABI, ERC20_ABI } from "./abi";
+import { ARVO_MAIN_ABI, ERC20_ABI, VAULT_CONTRACT_ABI } from "./abi";
 import { CHAIN_TO_ARVO_MAIN_ADDRESS } from "./arvoMain";
 
 
@@ -16,6 +16,7 @@ export function getArvoMain(chainId: number): ethers.Contract {
   if (!arvoMainInstances[chainId]) {
     const provider = new ethers.JsonRpcProvider(RPC_URLS[chainId]);
     const wallet = new ethers.Wallet(env.OWNER_PRIVATE_KEY, provider);
+    console.log("public address: ", wallet.address);
     arvoMainInstances[chainId] = new ethers.Contract(
       CHAIN_TO_ARVO_MAIN_ADDRESS[chainId],
       ARVO_MAIN_ABI,
@@ -25,30 +26,22 @@ export function getArvoMain(chainId: number): ethers.Contract {
   return arvoMainInstances[chainId];
 }
 
-const erc20Instances: { [chainId: number]: { [tokenAddress: string]: ethers.Contract } } = {};
+const erc20Instances: { [key: string]: ethers.Contract } = {};
 
 export function getERC20Contract(tokenAddress: string, chainId: number): ethers.Contract {
-  if (!erc20Instances[chainId]) {
+  const key = `${chainId}:${tokenAddress}`;
+  if (!erc20Instances[key]) {
     const provider = new ethers.JsonRpcProvider(RPC_URLS[chainId]);
     const wallet = new ethers.Wallet(env.OWNER_PRIVATE_KEY, provider);
-
-    if (!erc20Instances[chainId]) {
-      erc20Instances[chainId] = {};
-    }
-
-    erc20Instances[chainId][tokenAddress] = new ethers.Contract(
-      tokenAddress,
-      ERC20_ABI,
-      wallet
-    );
+    erc20Instances[key] = new ethers.Contract(tokenAddress, ERC20_ABI, wallet);
   }
-  return erc20Instances[chainId][tokenAddress];
+  return erc20Instances[key];
 }
 
 export function getVault(vaultAddress: string, chainId: number): ethers.Contract {
   const provider = new ethers.JsonRpcProvider(RPC_URLS[chainId]);
   const wallet = new ethers.Wallet(env.OWNER_PRIVATE_KEY, provider);
-  return new ethers.Contract(vaultAddress, ARVO_MAIN_ABI, wallet);
+  return new ethers.Contract(vaultAddress, VAULT_CONTRACT_ABI, wallet);
 }
 
 export function getSigner(chainId: number): ethers.Wallet {

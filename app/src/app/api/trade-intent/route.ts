@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { toSerializable } from "@/lib/serialize";
 import { redis } from "@/lib/redis";
-import { getTokenDecimals } from "@/utils/erc20";
 import { CreateTradeIntentRequest, OnChainSubmitTradeIntentStruct } from "../../../types/schema";
 import { Address } from "viem";
 import { submitTradeIntent } from "@/utils/arvoMain";
@@ -11,34 +11,26 @@ export async function POST(req: Request) {
     try {
         const createTradeIntentRequest: CreateTradeIntentRequest = await req.json();
 
-        const { userAddress, agentAddress, vaultAddress, chainId, tokenIn, tokenOut, amountIn, minAmountOut, deadline, maxPremium, minCoverage, minCoverageDuration, signature } = createTradeIntentRequest;
+        const { id, userAddress, agentAddress, vaultAddress, chainId, tokenIn, tokenOut, amountIn, minAmountOut, deadline, maxPremium, minCoverage, minCoverageDuration, signature } = createTradeIntentRequest;
         
         // Validate the request data
-        if (!userAddress || !agentAddress || !vaultAddress || !chainId || !tokenIn || !tokenOut || !amountIn || !minAmountOut || !deadline || !maxPremium || !minCoverage || !minCoverageDuration || !signature) {
+        if (!id || !userAddress || !agentAddress || !vaultAddress || !chainId || !tokenIn || !tokenOut || !amountIn || !minAmountOut || !deadline || !maxPremium || !minCoverage || !minCoverageDuration || !signature) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
-        // convert amountIn, minAmountOut, maxPremium to smallest unit (wei)
-        const amountInDecimal = await getTokenDecimals(tokenIn, chainId);
-        const minAmountOutDecimal = await getTokenDecimals(tokenOut, chainId);
-        const maxPremiumDecimal = 6; // always USDC, which has 6 decimals
-
-        const amountInWei = BigInt(amountIn * (10 ** amountInDecimal));
-        const minAmountOutWei = BigInt(minAmountOut * (10 ** minAmountOutDecimal));
-        const maxPremiumWei = BigInt(maxPremium * (10 ** maxPremiumDecimal));
-
         const tradeIntent = await prisma.tradeIntent.create({
             data: {
+                id,
                 userAddress,
                 agentAddress,
                 vaultAddress,
                 chainId,
                 tokenIn,
                 tokenOut,
-                amountIn: amountInWei,
-                minAmountOut: minAmountOutWei,
-                deadline: new Date(deadline),
-                maxPremium: maxPremiumWei,
+                amountIn: BigInt(amountIn),
+                minAmountOut: BigInt(minAmountOut),
+                deadline: new Date(Number(deadline) * 1000),
+                maxPremium: BigInt(maxPremium),
                 minCoverage,
                 minCoverageDuration,
                 signature,
@@ -55,7 +47,7 @@ export async function POST(req: Request) {
             tokenOut: tradeIntent.tokenOut as Address,
             amountIn: tradeIntent.amountIn,
             minAmountOut: tradeIntent.minAmountOut,
-            deadline: BigInt(tradeIntent.deadline.getTime()),
+            deadline: BigInt(Math.floor(tradeIntent.deadline.getTime() / 1000)),
             maxPremium: tradeIntent.maxPremium,
             minCoverage: tradeIntent.minCoverage.toNumber(), // in number (1-100)
             minCoverageDuration: tradeIntent.minCoverageDuration,
@@ -65,6 +57,7 @@ export async function POST(req: Request) {
         };
 
         const { txHash, receipt } = await submitTradeIntent(onChainIntentStruct, tradeIntent.chainId);
+        console.log("Trade intent submitted on-chain with txHash:", txHash);
 
         // confirm that the transaction was successful
         if (!txHash || !receipt || receipt.status !== 1) {
@@ -74,10 +67,22 @@ export async function POST(req: Request) {
         }
 
         // Send trade intent to Trade Engine and Risk Assessment queues
-        await redis.lpush("trade_execution_queue", JSON.stringify(tradeIntent));
-        await redis.lpush("risk_assessment_queue", JSON.stringify(tradeIntent));
+        const tradeIntentToSend = {
+            ...tradeIntent,
+            amountIn: tradeIntent.amountIn.toString(),
+            minAmountOut: tradeIntent.minAmountOut.toString(),
+            maxPremium: tradeIntent.maxPremium.toString(),
+            minCoverageDuration: tradeIntent.minCoverageDuration.toString(),
+        }
+        const payload = JSON.stringify(toSerializable(tradeIntentToSend));
+        await redis.lpush("trade_execution_queue", payload);
+        // risk engine consumes a stream
+        await redis.xadd("arvo:trade-intents", "*", "intent", payload);
 
-        return NextResponse.json({ tradeIntent, txHash }, { status: 201 });
+        return NextResponse.json(
+            { tradeIntent: toSerializable(tradeIntent), txHash },
+            { status: 201 },
+        );
     } catch (error) {
         console.log("Error creating trade intent:", error);
         return NextResponse.json({ error: "Failed to create trade intent" }, { status: 500 });

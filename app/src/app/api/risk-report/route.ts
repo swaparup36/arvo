@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { toSerializable } from "@/lib/serialize";
 import { CreateRiskReportRequest, OnChainSubmitRiskAssessmentStruct } from "../../../types/schema";
 import { submitRiskAssessment } from "@/utils/arvoMain";
 
@@ -8,10 +9,10 @@ export async function POST(req: Request) {
     try {
         const createRiskReportRequest: CreateRiskReportRequest = await req.json();
 
-        const { intentId, riskScore, premium, coverage, coverageDuration, signature, assessedAt, expiresAt, assessmentHash } = createRiskReportRequest;
+        const { id, intentId, riskScore, premium, coverage, coverageDuration, signature, assessedAt, expiresAt, assessmentHash } = createRiskReportRequest;
         
         // Validate the request data
-        if (!intentId || riskScore === undefined || premium === undefined || coverage === undefined || !coverageDuration || !signature || !assessedAt || !expiresAt || !assessmentHash) {
+        if (!id || !intentId || riskScore === undefined || premium === undefined || coverage === undefined || !coverageDuration || !signature || !assessedAt || !expiresAt || !assessmentHash) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
@@ -26,14 +27,15 @@ export async function POST(req: Request) {
 
         const riskReport = await prisma.riskAssessment.create({
             data: {
+                id,
                 intentId,
                 riskScore,
-                premium,
+                premium: BigInt(premium),
                 coverage,
-                coverageDuration,
+                coverageDuration: BigInt(coverageDuration),
                 signature,
-                assessedAt: new Date(assessedAt),
-                expiresAt: new Date(expiresAt),
+                assessedAt: new Date(assessedAt * 1000),
+                expiresAt: new Date(expiresAt * 1000),
                 assessmentHash,
             }
         });
@@ -47,8 +49,8 @@ export async function POST(req: Request) {
             coverage: riskReport.coverage.toNumber(), // in number (0-100)
             coverageDuration: riskReport.coverageDuration,
             signature: riskReport.signature,
-            assessedAt: BigInt(riskReport.assessedAt.getTime()),
-            expiresAt: BigInt(riskReport.expiresAt.getTime()),
+            assessedAt: BigInt(Math.floor(riskReport.assessedAt.getTime() / 1000)),
+            expiresAt: BigInt(Math.floor(riskReport.expiresAt.getTime() / 1000)),
             assessmentHash: riskReport.assessmentHash
         }
 
@@ -61,7 +63,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Failed to submit risk assessment on-chain" }, { status: 500 });
         }
 
-        return NextResponse.json({ riskReport, txHash }, { status: 201 });
+        return NextResponse.json({ riskReport: toSerializable(riskReport), txHash }, { status: 201 });
     } catch (error) {
         console.log("Error creating risk report:", error);
         return NextResponse.json({ error: "Failed to create risk report" }, { status: 500 });

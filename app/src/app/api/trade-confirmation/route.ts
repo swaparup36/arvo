@@ -3,16 +3,17 @@ import { prisma } from "@/lib/prisma";
 import { CreateTradeConfirmationRequest, OnChainSubmitTradeConfirmationStruct } from "../../../types/schema";
 import { Address } from "viem";
 import { submitTradeConfirmation } from "@/utils/arvoMain";
+import { toSerializable } from "@/lib/serialize";
 
 // POST (create trade confirmation)
 export async function POST(req: Request) {
     try {
         const createTradeConfirmationRequest: CreateTradeConfirmationRequest = await req.json();
 
-        const { intentId, transactionHash, chainId, tokenIn, tokenOut, amountIn, amountOut, signature, executedAt } = createTradeConfirmationRequest;
+        const { id, intentId, transactionHash, chainId, tokenIn, tokenOut, amountIn, amountOut, signature, executedAt } = createTradeConfirmationRequest;
         
         // Validate the request data
-        if (!intentId || !transactionHash || !chainId || !tokenIn || !tokenOut || !amountIn || !amountOut || !signature || !executedAt) {
+        if (!id || !intentId || !transactionHash || !chainId || !tokenIn || !tokenOut || !amountIn || !amountOut || !signature || !executedAt) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
@@ -27,13 +28,14 @@ export async function POST(req: Request) {
 
         const tradeConfirmation = await prisma.tradeConfirmation.create({
             data: {
+                id,
                 intentId,
                 transactionHash,
                 chainId,
                 tokenIn,
                 tokenOut,
-                amountIn,
-                amountOut,
+                amountIn: BigInt(amountIn),
+                amountOut: BigInt(amountOut),
                 signature,
                 executedAt: new Date(executedAt),
             }
@@ -49,7 +51,7 @@ export async function POST(req: Request) {
             amountIn: tradeConfirmation.amountIn,
             amountOut: tradeConfirmation.amountOut,
             signature: tradeConfirmation.signature,
-            executedAt: BigInt(tradeConfirmation.executedAt.getTime()),
+            executedAt: BigInt(Math.floor(tradeConfirmation.executedAt.getTime() / 1000)),
             createdAt: BigInt(tradeConfirmation.createdAt.getTime())
         }
 
@@ -62,7 +64,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Failed to submit trade confirmation on-chain" }, { status: 500 });
         }
 
-        return NextResponse.json({ tradeConfirmation, txHash }, { status: 201 });
+        return NextResponse.json({ tradeConfirmation: toSerializable(tradeConfirmation), txHash }, { status: 201 });
     } catch (error) {
         console.log("Error creating trade confirmation:", error);
         return NextResponse.json({ error: "Failed to create trade confirmation" }, { status: 500 });

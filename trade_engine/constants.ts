@@ -12,6 +12,8 @@ declare const process: {
         UNISWAP_API_KEY?: string,
         MOCK_USDC_ADDRESS?: string,
         SEPOLIA_RPC_URL?: string,
+        ARVO_MAIN_ETH_ADDRESS?: string,
+        ARVO_MAIN_SEPOLIA_ADDRESS?: string,
     }
 };
 
@@ -26,3 +28,5 @@ export const TRADE_CONFIRMATION_SECRET = process.env.TRADE_CONFIRMATION_SECRET!;
 export const NODE_ENV = process.env.NODE_ENV || "development";
 export const MOCK_USDC_ADDRESS = process.env.MOCK_USDC_ADDRESS!;
 export const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL!;
+export const ARVO_MAIN_ETH_ADDRESS = process.env.ARVO_MAIN_ETH_ADDRESS!;
+export const ARVO_MAIN_SEPOLIA_ADDRESS = process.env.ARVO_MAIN_SEPOLIA_ADDRESS!;

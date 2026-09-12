@@ -713,5 +713,37 @@ export const VAULT_CONTRACT_ABI = [
       }
     ],
     stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "lockedAmount",
+    inputs: [
+      {
+        name: "",
+        type: "address",
+        internalType: "address"
+      }
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256"
+      }
+    ],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "vaultName",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "string",
+        internalType: "string"
+      }
+    ],
+    stateMutability: "view"
   }
 ]

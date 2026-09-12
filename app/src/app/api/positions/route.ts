@@ -7,6 +7,17 @@ function toSerializable(value: unknown): unknown {
     return value.toString();
   }
 
+  // ethers v6 Result is an array subclass; JSON.stringify would drop its
+  // named fields and serialize it by numeric index only, so convert first.
+  if (
+    value &&
+    typeof value === "object" &&
+    "toObject" in value &&
+    typeof (value as { toObject: unknown }).toObject === "function"
+  ) {
+    return toSerializable((value as { toObject: () => unknown }).toObject());
+  }
+
   if (Array.isArray(value)) {
     return value.map(toSerializable);
   }

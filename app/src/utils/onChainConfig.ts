@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
 import { env } from "../lib/env";
-import { ARVO_MAIN_ABI, ERC20_ABI } from "./abi";
+import { ARVO_MAIN_ABI, ERC20_ABI, VAULT_CONTRACT_ABI } from "./abi";
 import { CHAIN_TO_ARVO_MAIN_ADDRESS } from "./arvoMain";
 
 
@@ -48,7 +48,7 @@ export function getERC20Contract(tokenAddress: string, chainId: number): ethers.
 export function getVault(vaultAddress: string, chainId: number): ethers.Contract {
   const provider = new ethers.JsonRpcProvider(RPC_URLS[chainId]);
   const wallet = new ethers.Wallet(env.OWNER_PRIVATE_KEY, provider);
-  return new ethers.Contract(vaultAddress, ARVO_MAIN_ABI, wallet);
+  return new ethers.Contract(vaultAddress, VAULT_CONTRACT_ABI, wallet);
 }
 
 export function getSigner(chainId: number): ethers.Wallet {

@@ -7,6 +7,17 @@ function toSerializable(value: unknown): unknown {
     return value.toString();
   }
 
+  // ethers v6 Result is an array subclass; JSON.stringify would drop its
+  // named fields and serialize it by numeric index only, so convert first.
+  if (
+    value &&
+    typeof value === "object" &&
+    "toObject" in value &&
+    typeof (value as { toObject: unknown }).toObject === "function"
+  ) {
+    return toSerializable((value as { toObject: () => unknown }).toObject());
+  }
+
   if (Array.isArray(value)) {
     return value.map(toSerializable);
   }
@@ -20,7 +31,7 @@ function toSerializable(value: unknown): unknown {
   return value;
 }
 
-// GET (fetch all insurances by vault address and chain ID)
+// GET (fetch all insurances for a vault or an agent's trade intents, by chain ID)
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -31,9 +42,11 @@ export async function GET(req: Request) {
     }
 
     const vaultAddress = searchParams.get("vaultAddress");
-    if (!vaultAddress) {
+    const agentAddress = searchParams.get("agentAddress");
+
+    if (!vaultAddress && !agentAddress) {
       return NextResponse.json(
-        { error: "Missing vault address" },
+        { error: "Missing vault address or agent address" },
         { status: 400 },
       );
     }
@@ -43,7 +56,7 @@ export async function GET(req: Request) {
     try {
       tradeIntents = await prisma.tradeIntent.findMany({
         where: {
-          vaultAddress,
+          ...(agentAddress ? { agentAddress } : { vaultAddress: vaultAddress as string }),
           chainId: parseInt(chainId, 10),
         },
       });

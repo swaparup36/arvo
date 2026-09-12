@@ -1,3 +1,4 @@
+import { Tooltip } from "@/components/dashboard/Tooltip";
 import type { Vault } from "@/types/dashboard";
 
 export function VaultOverview({
@@ -65,6 +66,11 @@ export function VaultOverview({
         </div>
       </div>
 
+      {vaults.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-[#99e836]/15 bg-transparent p-6 text-center text-sm text-slate-400">
+          No vaults deployed on {selectedChain} yet. Deploy one to get started.
+        </div>
+      ) : (
       <div className="grid gap-3 md:grid-cols-2">
         {vaults.map((vault) => {
           const visibleAssets = vault.assets.slice(0, 4);
@@ -119,11 +125,27 @@ export function VaultOverview({
                   >
                     <div className="flex items-center justify-between text-[10px] uppercase text-slate-400">
                       <span>{asset.token}</span>
-                      <span>{asset.apy}</span>
+                      <Tooltip
+                        label={`${asset.lockedPercent.toFixed(1)}% of this vault's ${asset.token} is locked in active positions`}
+                      >
+                        <span
+                          className={
+                            asset.lockedPercent > 0
+                              ? "text-amber-300"
+                              : "text-slate-500"
+                          }
+                        >
+                          {asset.lockedPercent.toFixed(1)}% locked
+                        </span>
+                      </Tooltip>
                     </div>
-                    <div className="mt-2 text-base font-medium text-[#edf5ee]">
-                      {asset.balance}
-                    </div>
+                    <Tooltip
+                      label={`Current ${asset.token} held by this vault (available + locked)`}
+                    >
+                      <div className="mt-2 text-base font-medium text-[#edf5ee]">
+                        {asset.totalDeposited}
+                      </div>
+                    </Tooltip>
                   </div>
                 ))}
 
@@ -143,6 +165,7 @@ export function VaultOverview({
           );
         })}
       </div>
+      )}
     </div>
   );
 }

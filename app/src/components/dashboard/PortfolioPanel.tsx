@@ -8,37 +8,44 @@ export function PositionsPanel({ positions }: { positions: Position[] }) {
           Positions
         </h2>
       </div>
-      <div className="space-y-4">
-        {positions.map((position, index) => (
-          <div
-            key={`${position.asset}-${position.size}-${index}`}
-            className="rounded-2xl border border-[#99e836]/10 bg-transparent p-3"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-[#edf5ee]">
-                  {position.asset}
-                </p>
-                <p className="text-xs text-slate-400">{position.size}</p>
-              </div>
-              <div className="text-right">
-                <p className="font-medium text-[#edf5ee]">{position.value}</p>
-                <p
-                  className={`text-xs ${
-                    position.status === "Locked"
-                      ? "text-amber-300"
-                      : position.status === "Expiring"
-                        ? "text-red-300"
-                        : "text-emerald-300"
-                  }`}
-                >
-                  {position.status}
-                </p>
+
+      {positions.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-[#99e836]/15 bg-transparent p-6 text-center text-sm text-slate-400">
+          No open positions for this vault yet.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {positions.map((position) => (
+            <div
+              key={position.id}
+              className="rounded-2xl border border-[#99e836]/10 bg-transparent p-3"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-[#edf5ee]">
+                    {position.pair}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    In {position.amountIn} · Out {position.amountOut}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p
+                    className={`text-xs ${
+                      position.status === "Active"
+                        ? "text-emerald-300"
+                        : "text-slate-400"
+                    }`}
+                  >
+                    {position.status}
+                  </p>
+                  <p className="text-xs text-slate-500">{position.openedAt}</p>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

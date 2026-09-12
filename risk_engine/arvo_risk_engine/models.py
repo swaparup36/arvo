@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
@@ -10,28 +11,26 @@ class Model(BaseModel):
 
 
 class TradeIntent(Model):
+    # Prisma TradeIntent.id (UUID), supplied by Backend/Redis after persistence.
     intentId: str
-    user: str
-    agent: str
-    vault: str
+    userAddress: str
+    agentAddress: str
+    vaultAddress: str
+    chainId: int = Field(gt=0)
     tokenIn: str
     tokenOut: str
     amountIn: int = Field(gt=0)
     minAmountOut: int = Field(ge=0)
-    deadline: int = Field(gt=0)
+    deadline: datetime
     maxPremium: int = Field(ge=0)
-    maxCoverage: int = Field(ge=0)
-    requestedCoverageDuration: int = Field(gt=0)
-    nonce: int = Field(ge=0)
+    minCoverage: Decimal = Field(ge=0, le=100, description="minimum insured notional percentage")
+    minCoverageDuration: int = Field(gt=0, description="minimum coverage duration in seconds")
     signature: str
 
     @field_validator("intentId")
     @classmethod
-    def intent_id_is_bytes32(cls, value: str) -> str:
-        if not value.startswith("0x") or len(value) != 66:
-            raise ValueError("intentId must be a 0x-prefixed bytes32")
-        int(value[2:], 16)
-        return value.lower()
+    def intent_id_is_uuid(cls, value: str) -> str:
+        return str(UUID(value))
 
 
 class MarketSnapshot(Model):
@@ -51,12 +50,11 @@ class AssessmentRequest(Model):
 
 
 class RiskReport(Model):
+    """Mirrors Backend's CreateRiskReportRequest (app/src/types/schema.ts) field-for-field."""
     intentId: str
-    canBeInsured: bool
-    tradeAllowed: bool
     riskScore: int = Field(ge=0, le=100)
     premium: int = Field(ge=0)
-    coverageAmount: int = Field(ge=0)
+    coverage: Decimal = Field(ge=0, le=100, description="insured notional percentage")
     coverageDuration: int = Field(ge=0)
     signature: str
     assessedAt: datetime

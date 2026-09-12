@@ -15,6 +15,7 @@ import { StatCard, type StatTone } from "@/components/dashboard/StatCard";
 import { TradeIntentsPanel } from "@/components/dashboard/TradeIntentsPanel";
 import { VaultOverview } from "@/components/dashboard/VaultOverview";
 import { useUserVaults } from "@/hooks/useUserVaults";
+import { clearAuthToken, useWalletAuth } from "@/hooks/useWalletAuth";
 import {
   chainOptions,
   defaultAgents,
@@ -60,6 +61,7 @@ export default function Home() {
   const fallbackAgentAddress = "0x742d35Cc6634C0532925a3b844Bc454e4604e";
   const activeAgentAddress = walletAddress || fallbackAgentAddress;
   const { vaults: userVaults } = useUserVaults(selectedChain, walletAddress);
+  const { error: authError } = useWalletAuth();
   const chainIdMap: Record<string, string> = {
     Ethereum: "1",
     Sepolia: "11155111",
@@ -69,6 +71,9 @@ export default function Home() {
   };
   const selectedChainId = chainIdMap[selectedChain] ?? "8453";
   const [transactionStatus, setTransactionStatus] = useState<string>("");
+  const statusMessage = authError
+    ? `Sign-in failed: ${authError}`
+    : transactionStatus;
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isWalletMenuOpen, setIsWalletMenuOpen] = useState<boolean>(false);
   const [agentPage, setAgentPage] = useState<number>(1);
@@ -439,6 +444,7 @@ export default function Home() {
   };
 
   const handleWalletDisconnect = () => {
+    clearAuthToken();
     disconnect();
     setTransactionStatus("Wallet disconnected.");
     setIsWalletMenuOpen(false);
@@ -801,8 +807,8 @@ export default function Home() {
                 ) : null}
               </div>
 
-              {transactionStatus ? (
-                <p className="text-xs text-slate-300">{transactionStatus}</p>
+              {statusMessage ? (
+                <p className="text-xs text-slate-300">{statusMessage}</p>
               ) : null}
             </div>
           </DashboardCard>

@@ -13,6 +13,8 @@ export async function POST(req: Request) {
       );
     }
 
+    const normalizedAddress = address.toLowerCase();
+
     // Validate Ethereum address
     if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
       return NextResponse.json(
@@ -25,11 +27,10 @@ export async function POST(req: Request) {
     const nonce = crypto.randomBytes(32).toString("hex");
 
     // save nonce to database
-    const nonceEntry = await prisma.nonce.create({
-      data: {
-        address,
-        nonce,
-      },
+    const nonceEntry = await prisma.nonce.upsert({
+      where: { address: normalizedAddress },
+      update: { nonce, expiresAt: new Date(Date.now() + 5 * 60_000) },
+      create: { address: normalizedAddress, nonce },
     });
 
     return NextResponse.json({ nonce: nonceEntry.nonce }, { status: 200 });

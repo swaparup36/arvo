@@ -4,8 +4,7 @@ import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
-    const { grant_type, code, redirect_uri, client_id, code_verifier } =
-      (await req.json()) || {};
+    const { grant_type, code, redirect_uri, client_id, code_verifier } = (await req.json()) || {};
 
     const headers = new Headers({ "Cache-Control": "no-store" });
 

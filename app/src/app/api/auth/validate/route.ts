@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { VerifyWalletRequest } from "../../../../types/schema";
-import { createToken } from "../../../../../middleware";
+import { createToken } from "@/lib/jwt";
 import { ethers } from "ethers";
+import { buildSignInMessage } from "@/lib/siwe";
 
 export async function POST(req: Request) {
     try {
@@ -45,10 +46,7 @@ export async function POST(req: Request) {
             );
         }
 
-        const message = `Sign in to Arvo
-
-        Wallet: ${normalizedAddress}
-        Nonce: ${nonceEntry.nonce}`;
+        const message = buildSignInMessage(normalizedAddress, nonceEntry.nonce);
 
         const recoveredAddress = ethers.verifyMessage(
             message,

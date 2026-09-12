@@ -3,7 +3,7 @@ import { z } from "zod";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
-import { verifyToken } from "../../../../../middleware";
+import { verifyToken } from "@/lib/jwt";
 import { ethers } from "ethers";
 import { CreateTradeIntentRequest } from "../../../../types/schema";
 

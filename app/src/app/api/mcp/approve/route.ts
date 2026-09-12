@@ -2,14 +2,15 @@ import { prisma } from "@/lib/prisma";
 import { redis } from "@/lib/redis";
 import { ethers } from "ethers";
 import { NextResponse } from "next/server";
-import { createToken } from "../../../../../middleware";
+import { createToken } from "@/lib/jwt";
 import { randomBytes } from "crypto";
+import { buildSignInMessage } from "@/lib/siwe";
 
 
 export async function POST(req: Request) {
     try {
         const { key, address, vaultAddress, signature } = await req.json();
-        const pendingAuthDataJson = await redis.hget("pendingAuth", key);
+        const pendingAuthDataJson = await redis.get(`pendingAuth:${key}`);
         const pendingAuthData = pendingAuthDataJson ? JSON.parse(pendingAuthDataJson) : null;
 
         if (!pendingAuthData) {
@@ -56,10 +57,7 @@ export async function POST(req: Request) {
                 );
             }
     
-            const message = `Sign in to Arvo
-    
-            Wallet: ${normalizedAddress}
-            Nonce: ${nonceEntry.nonce}`;
+            const message = buildSignInMessage(normalizedAddress, nonceEntry.nonce);
     
             const recoveredAddress = ethers.verifyMessage(
                 message,
@@ -119,7 +117,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Could not reach the todo API" }, { status: 502 });
         }
 
-        await redis.hdel("pendingAuth", key);
+        await redis.del(`pendingAuth:${key}`);
 
         const code = randomBytes(32).toString("hex");
 
@@ -138,9 +136,7 @@ export async function POST(req: Request) {
         url.searchParams.set("code", code);
         if (pendingAuthData.state) url.searchParams.set("state", pendingAuthData.state);
 
-        console.log("Redirecting to:", url.toString(), "with code:", code, "and state:", pendingAuthData.state);
-
-        return NextResponse.redirect(url.toString());
+        return NextResponse.json({ redirectUrl: url.toString() });
     } catch (error) {
         console.error("Error handling approve request:", error);
         return NextResponse.json({ error: "Failed to handle approve request" }, { status: 500 });

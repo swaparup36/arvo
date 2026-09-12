@@ -9,7 +9,7 @@ const schema = z.object({
     .default("postgresql://postgres:postgres@localhost:5432/app?schema=public"),
   REDIS_URL: z.url().default("redis://localhost:6379"),
   CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(60),
-  BASE_MCP_URL: z.string().url().default("http://localhost:3000/mcp"),
+  BASE_MCP_URL: z.string().url().default("http://localhost:3000/api/mcp"),
   BASE_URL: z.string().url().default("http://localhost:3000"),
   ARVO_MAIN_ETH_ADDRESS: z
     .string()
@@ -43,6 +43,8 @@ const schema = z.object({
   USDC_SEPOLIA_ADDRESS: z
     .string()
     .default("0x0000000000000000000000000000000000000000"),
+  JWT_SECRET: z.string().min(1),
+  TRADE_CONFIRMATION_SECRET: z.string()
 });
 
 const parsed = schema.safeParse(process.env);

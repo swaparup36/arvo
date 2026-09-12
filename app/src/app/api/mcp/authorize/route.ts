@@ -1,3 +1,4 @@
+import { env } from "@/lib/env";
 import { redis } from "@/lib/redis";
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
@@ -33,15 +34,17 @@ export async function GET(req: Request) {
 
         if (codeChallengeMethod !== "S256") {
             return NextResponse.json({ error: "unsupported_code_challenge_method" }, { status: 400 });
-        }
+    }
 
         const pendingReqKey = randomUUID();
         const pendingAuthData = { clientId, redirectUri, state, codeChallenge, codeChallengeMethod, resource };
-        await redis.hset("pendingAuth", pendingReqKey, JSON.stringify(pendingAuthData));
+        
+        // 10 min TTL
+        await redis.set(`pendingAuth:${pendingReqKey}`, JSON.stringify(pendingAuthData), "EX", 600);
         console.log("Pending auth request stored with key:", pendingReqKey);
 
         // redirect to a consent page with the pendingReqKey as a query parameter
-        return NextResponse.redirect(`${(process.env.BASE_URL)?.split('/')[0]}/consent?key=${pendingReqKey}`);
+        return NextResponse.redirect(`${(env.BASE_URL)}/consent?key=${pendingReqKey}`);
     } catch (error) {
         console.error("Error handling authorize request:", error);
         return NextResponse.json({ error: "Failed to handle authorize request" }, { status: 500 });

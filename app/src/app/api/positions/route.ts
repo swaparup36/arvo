@@ -2,6 +2,24 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getPositionByTradeIntentId } from "@/utils/arvoMain";
 
+function toSerializable(value: unknown): unknown {
+  if (typeof value === "bigint") {
+    return value.toString();
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(toSerializable);
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, toSerializable(entry)]),
+    );
+  }
+
+  return value;
+}
+
 // GET (fetch all positions by vault address and chain ID)
 export async function GET(req: Request) {
   try {
@@ -41,7 +59,7 @@ export async function GET(req: Request) {
           intent.id,
           parseInt(chainId, 10),
         );
-        if (position) positions.push(position);
+        if (position) positions.push(toSerializable(position));
       } catch (onchainError) {
         console.warn("On-chain position lookup failed:", onchainError);
       }

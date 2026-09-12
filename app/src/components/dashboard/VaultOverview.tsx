@@ -112,9 +112,9 @@ export function VaultOverview({
               </div>
 
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                {visibleAssets.map((asset) => (
+                {visibleAssets.map((asset, index) => (
                   <div
-                    key={`${vault.id}-${asset.token}`}
+                    key={`${vault.id}-${asset.token}-${index}`}
                     className="rounded-xl border border-[#99e836]/10 bg-transparent p-2.5"
                   >
                     <div className="flex items-center justify-between text-[10px] uppercase text-slate-400">

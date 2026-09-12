@@ -2,6 +2,24 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getTradeIntent } from "@/utils/arvoMain";
 
+function toSerializable(value: unknown): unknown {
+  if (typeof value === "bigint") {
+    return value.toString();
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(toSerializable);
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, toSerializable(entry)]),
+    );
+  }
+
+  return value;
+}
+
 // GET (fetch trade intents by user address)
 export async function GET(
   req: Request,
@@ -46,7 +64,7 @@ export async function GET(
     }
 
     return NextResponse.json(
-      { tradeIntents: onChainTradeIntents },
+      { tradeIntents: toSerializable(onChainTradeIntents) },
       { status: 200 },
     );
   } catch (error) {

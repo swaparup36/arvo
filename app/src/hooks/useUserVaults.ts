@@ -3,7 +3,6 @@
 import { BrowserProvider, Contract } from "ethers";
 import { useEffect, useState } from "react";
 
-import { defaultVaults } from "@/lib/dashboard-data";
 import { getWalletProvider } from "@/lib/wallet";
 import type { Vault } from "@/types/dashboard";
 
@@ -14,7 +13,7 @@ const FACTORY_ABI = [
 const VAULT_ABI = ["function vaultName() view returns(string)"];
 
 export function useUserVaults(selectedChain: string, walletAddress?: string) {
-  const [vaults, setVaults] = useState<Vault[]>(defaultVaults);
+  const [vaults, setVaults] = useState<Vault[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,7 +23,7 @@ export function useUserVaults(selectedChain: string, walletAddress?: string) {
     const loadVaults = async () => {
       if (!walletAddress) {
         if (isMounted) {
-          setVaults(defaultVaults);
+          setVaults([]);
           setError(null);
           setIsLoading(false);
         }
@@ -51,7 +50,7 @@ export function useUserVaults(selectedChain: string, walletAddress?: string) {
 
         if (Number(chainId).toString() !== expectedChainId) {
           if (isMounted) {
-            setVaults(defaultVaults);
+            setVaults([]);
           }
           return;
         }
@@ -66,7 +65,7 @@ export function useUserVaults(selectedChain: string, walletAddress?: string) {
           factoryAddress === "0x0000000000000000000000000000000000000000"
         ) {
           if (isMounted) {
-            setVaults(defaultVaults);
+            setVaults([]);
           }
           return;
         }
@@ -98,15 +97,25 @@ export function useUserVaults(selectedChain: string, walletAddress?: string) {
               totalValue: "$0",
               health: "Healthy" as const,
               assets: [
-                { token: "USDC", balance: "0", apy: "0%", locked: "$0" },
-                { token: "ETH", balance: "0", apy: "0%", locked: "$0" },
+                {
+                  token: "USDC",
+                  totalDeposited: "0",
+                  availableBalance: "0",
+                  lockedPercent: 0,
+                },
+                {
+                  token: "ETH",
+                  totalDeposited: "0",
+                  availableBalance: "0",
+                  lockedPercent: 0,
+                },
               ],
             } satisfies Vault;
           }),
         );
 
         if (isMounted) {
-          setVaults(vaultRecords.length > 0 ? vaultRecords : defaultVaults);
+          setVaults(vaultRecords);
         }
       } catch (caughtError) {
         if (isMounted) {
@@ -115,7 +124,7 @@ export function useUserVaults(selectedChain: string, walletAddress?: string) {
               ? caughtError.message
               : "Failed to load user vaults.",
           );
-          setVaults(defaultVaults);
+          setVaults([]);
         }
       } finally {
         if (isMounted) {

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { toSerializable } from "@/lib/serialize";
 import { getInsuranceByTradeIntentId } from "@/utils/arvoMain";
 
-// GET (fetch all insurances by vault address and chain ID)
+// GET (fetch all insurances for a vault or an agent's address, by chain ID)
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -14,9 +14,11 @@ export async function GET(req: Request) {
     }
 
     const vaultAddress = searchParams.get("vaultAddress");
-    if (!vaultAddress) {
+    const agentAddress = searchParams.get("agentAddress");
+
+    if (!vaultAddress && !agentAddress) {
       return NextResponse.json(
-        { error: "Missing vault address" },
+        { error: "Missing vault address or agent address" },
         { status: 400 },
       );
     }
@@ -26,7 +28,7 @@ export async function GET(req: Request) {
     try {
       tradeIntents = await prisma.tradeIntent.findMany({
         where: {
-          vaultAddress,
+          ...(agentAddress ? { agentAddress } : { vaultAddress: vaultAddress as string }),
           chainId: parseInt(chainId, 10),
         },
       });

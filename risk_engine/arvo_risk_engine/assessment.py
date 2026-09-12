@@ -11,8 +11,9 @@ from .signer import sign
 
 async def assess_and_submit(intent: TradeIntent, settings: Settings) -> RiskReport:
     market = await collect_market_snapshot(intent, settings)
+    profile = settings.chain_profile(intent.chainId)
     report = sign(intent.intentId, assess(intent, market), settings.risk_engine_private_key,
-                  settings.chain_id, settings.verifying_contract)
+                  intent.chainId, profile.verifying_contract)
     # Backend must de-duplicate POST /api/risk-report by intentId/assessmentHash.
     # Queue delivery is at-least-once, so a network failure after POST can be retried.
     await submit_report(report, settings.backend_url, settings.report_path)

@@ -3,26 +3,25 @@
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { BrowserProvider, Contract, ethers } from "ethers";
 import { useAccount, useDisconnect } from "wagmi";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AgentsPanel } from "@/components/dashboard/AgentsPanel";
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { NewVaultDialog } from "@/components/dashboard/NewVaultDialog";
 import { PositionsPanel } from "@/components/dashboard/PortfolioPanel";
+import { Tooltip } from "@/components/dashboard/Tooltip";
 import { RiskMonitor } from "@/components/dashboard/RiskMonitor";
 import { ScrollReveal } from "@/components/dashboard/ScrollReveal";
 import { StatCard, type StatTone } from "@/components/dashboard/StatCard";
 import { TradeIntentsPanel } from "@/components/dashboard/TradeIntentsPanel";
 import { VaultOverview } from "@/components/dashboard/VaultOverview";
+import { HomePage } from "@/components/home/HomePage";
 import { useUserVaults } from "@/hooks/useUserVaults";
 import { clearAuthToken, useWalletAuth } from "@/hooks/useWalletAuth";
 import {
+  chainIdMap,
   chainOptions,
-  defaultAgents,
-  defaultInsurance,
-  defaultPositions,
-  defaultTradeIntents,
-  defaultVaults,
   tokenAddressesByChain,
   tokenDecimals,
 } from "@/lib/dashboard-data";
@@ -37,16 +36,155 @@ import type {
   Position,
   TradeIntent,
   Vault,
+  VaultAsset,
 } from "@/types/dashboard";
+
+const ETH_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+async function fetchVaultAssets(
+  vaultAddress: string,
+  chain: string,
+  chainId: string,
+): Promise<VaultAsset[]> {
+  const usdcAddress = tokenAddressesByChain[chain]?.USDC;
+  const trackedTokens: Array<{ symbol: string; address: string }> = [
+    { symbol: "ETH", address: ETH_ADDRESS },
+    ...(usdcAddress && usdcAddress !== ETH_ADDRESS
+      ? [{ symbol: "USDC", address: usdcAddress }]
+      : []),
+  ];
+
+  return Promise.all(
+    trackedTokens.map(async ({ symbol, address }) => {
+      const empty = {
+        token: symbol,
+        totalDeposited: "0",
+        availableBalance: "0",
+        lockedPercent: 0,
+      } satisfies VaultAsset;
+
+      try {
+        const response = await fetch(
+          `/api/vault/get-vault-balance?vaultAddress=${vaultAddress}&asset=${address}&chainId=${chainId}`,
+        );
+
+        if (!response.ok) {
+          return empty;
+        }
+
+        const data = (await response.json()) as {
+          available?: string;
+          locked?: string;
+        };
+        const available = BigInt(data.available ?? "0");
+        const locked = BigInt(data.locked ?? "0");
+        const total = available + locked;
+        const decimals = tokenDecimals[symbol] ?? 18;
+        const zero = BigInt(0);
+
+        return {
+          token: symbol,
+          totalDeposited: ethers.formatUnits(total, decimals),
+          availableBalance: ethers.formatUnits(available, decimals),
+          lockedPercent:
+            total > zero
+              ? Number((locked * BigInt(10000)) / total) / 100
+              : 0,
+        } satisfies VaultAsset;
+      } catch (error) {
+        console.warn(`Failed to load ${symbol} balance for vault`, error);
+        return empty;
+      }
+    }),
+  );
+}
+
+function getFriendlyErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object") {
+    const err = error as { reason?: unknown; shortMessage?: unknown; message?: unknown };
+
+    if (typeof err.reason === "string" && err.reason) {
+      return err.reason;
+    }
+
+    if (typeof err.shortMessage === "string" && err.shortMessage) {
+      return err.shortMessage;
+    }
+
+    if (typeof err.message === "string") {
+      const revertMatch =
+        err.message.match(/reason="([^"]+)"/) ??
+        err.message.match(/execution reverted: "([^"]+)"/);
+      if (revertMatch) {
+        return revertMatch[1];
+      }
+    }
+  }
+
+  if (error instanceof Error) {
+    return error.message.length > 160
+      ? `${error.message.slice(0, 160)}…`
+      : error.message;
+  }
+
+  return fallback;
+}
+
+function resolveTokenSymbol(chain: string, address?: string): string {
+  if (!address) return "Unknown";
+
+  const lower = address.toLowerCase();
+  if (lower === "0x0000000000000000000000000000000000000000") return "ETH";
+
+  const chainTokens = tokenAddressesByChain[chain] ?? {};
+  const match = Object.entries(chainTokens).find(
+    ([, tokenAddress]) => tokenAddress.toLowerCase() === lower,
+  );
+
+  return match ? match[0] : `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+function getSupportedAssetsForChain(chain: string): string[] {
+  const chainTokens = tokenAddressesByChain[chain] ?? {};
+
+  return Object.keys(tokenDecimals).filter(
+    (token) =>
+      token === "ETH" ||
+      (chainTokens[token] && chainTokens[token] !== ETH_ADDRESS),
+  );
+}
+
+function formatTokenAmount(rawAmount: unknown, symbol: string): string {
+  try {
+    const decimals = tokenDecimals[symbol] ?? 18;
+    const value =
+      typeof rawAmount === "bigint" ? rawAmount : BigInt(String(rawAmount));
+    return `${ethers.formatUnits(value, decimals)} ${symbol}`;
+  } catch {
+    return `${String(rawAmount ?? "0")} ${symbol}`;
+  }
+}
+
+function formatOnChainTimestamp(rawTimestamp: unknown): string {
+  const seconds = Number(rawTimestamp ?? 0);
+  if (!seconds) return "unknown";
+  return new Date(seconds * 1000).toLocaleString();
+}
+
+function formatDurationSeconds(rawSeconds: unknown): string {
+  const seconds = Number(rawSeconds ?? 0);
+  if (!seconds) return "0d";
+  const days = seconds / 86400;
+  return days >= 1 ? `${days.toFixed(1)}d` : `${Math.round(seconds / 3600)}h`;
+}
 
 export default function Home() {
   const [selectedChain, setSelectedChain] = useState<string>(chainOptions[1]);
-  const [vaults, setVaults] = useState<Vault[]>(defaultVaults);
-  const [agents, setAgents] = useState<Agent[]>(defaultAgents);
-  const [tradeIntents, setTradeIntents] =
-    useState<TradeIntent[]>(defaultTradeIntents);
-  const [positions, setPositions] = useState<Position[]>(defaultPositions);
-  const [insurance, setInsurance] = useState<InsuranceItem[]>(defaultInsurance);
+  const [vaults, setVaults] = useState<Vault[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [tradeIntents, setTradeIntents] = useState<TradeIntent[]>([]);
+  const [positions, setPositions] = useState<Position[]>([]);
+  const [insurance, setInsurance] = useState<InsuranceItem[]>([]);
   const [vaultAction, setVaultAction] = useState<"deposit" | "withdraw">(
     "deposit",
   );
@@ -58,18 +196,13 @@ export default function Home() {
   const { openConnectModal } = useConnectModal();
 
   const walletAddress = address ?? "";
-  const fallbackAgentAddress = "0x742d35Cc6634C0532925a3b844Bc454e4604e";
-  const activeAgentAddress = walletAddress || fallbackAgentAddress;
   const { vaults: userVaults } = useUserVaults(selectedChain, walletAddress);
   const { error: authError } = useWalletAuth();
-  const chainIdMap: Record<string, string> = {
-    Ethereum: "1",
-    Sepolia: "11155111",
-    Base: "8453",
-    Arbitrum: "42161",
-    Optimism: "10",
-  };
   const selectedChainId = chainIdMap[selectedChain] ?? "8453";
+  const supportedAssets = useMemo(
+    () => getSupportedAssetsForChain(selectedChain),
+    [selectedChain],
+  );
   const [transactionStatus, setTransactionStatus] = useState<string>("");
   const statusMessage = authError
     ? `Sign-in failed: ${authError}`
@@ -80,6 +213,8 @@ export default function Home() {
   const [intentPage, setIntentPage] = useState<number>(1);
   const [vaultPage, setVaultPage] = useState<number>(1);
   const [selectedVaultId, setSelectedVaultId] = useState<string | null>(null);
+  const [isNewVaultDialogOpen, setIsNewVaultDialogOpen] = useState<boolean>(false);
+  const [newVaultName, setNewVaultName] = useState<string>("");
 
   const AGENT_PAGE_SIZE = 4;
   const INTENT_PAGE_SIZE = 4;
@@ -119,7 +254,36 @@ export default function Home() {
   useEffect(() => {
     setVaults(userVaults);
     setVaultPage(1);
-  }, [userVaults]);
+
+    if (userVaults.length === 0) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const enrichVaultAssets = async () => {
+      const enrichedVaults = await Promise.all(
+        userVaults.map(async (vault) => ({
+          ...vault,
+          assets: await fetchVaultAssets(
+            vault.address,
+            vault.chain,
+            chainIdMap[vault.chain] ?? selectedChainId,
+          ),
+        })),
+      );
+
+      if (!isCancelled) {
+        setVaults(enrichedVaults);
+      }
+    };
+
+    void enrichVaultAssets();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [userVaults, selectedChainId]);
 
   useEffect(() => {
     if (vaults.length === 0) {
@@ -137,63 +301,68 @@ export default function Home() {
   }, [vaults]);
 
   useEffect(() => {
-    const loadWalletTokenBalance = async () => {
-      if (!walletAddress) {
+    if (!supportedAssets.includes(selectedAsset)) {
+      setSelectedAsset(supportedAssets[0] ?? "ETH");
+    }
+  }, [selectedAsset, supportedAssets]);
+
+  const loadWalletTokenBalance = useCallback(async () => {
+    if (!walletAddress) {
+      setWalletTokenBalance("0");
+      return;
+    }
+
+    try {
+      const provider = new BrowserProvider(getWalletProvider());
+
+      if (selectedAsset === "ETH") {
+        const balance = await provider.getBalance(walletAddress);
+        setWalletTokenBalance(ethers.formatUnits(balance, 18));
+        return;
+      }
+
+      const tokenAddress = tokenAddressesByChain[selectedChain]?.[selectedAsset];
+
+      if (!tokenAddress || tokenAddress === ETH_ADDRESS) {
         setWalletTokenBalance("0");
         return;
       }
 
-      try {
-        const provider = new BrowserProvider(getWalletProvider());
+      const erc20 = new Contract(
+        tokenAddress,
+        ["function balanceOf(address) view returns(uint256)"],
+        provider,
+      );
 
-        if (selectedAsset === "ETH") {
-          const balance = await provider.getBalance(walletAddress);
-          setWalletTokenBalance(ethers.formatUnits(balance, 18));
-          return;
-        }
-
-        const tokenAddress =
-          tokenAddressesByChain[selectedChain]?.[selectedAsset];
-
-        if (
-          !tokenAddress ||
-          tokenAddress === "0x0000000000000000000000000000000000000000"
-        ) {
-          setWalletTokenBalance("0");
-          return;
-        }
-
-        const erc20 = new Contract(
-          tokenAddress,
-          ["function balanceOf(address) view returns(uint256)"],
-          provider,
-        );
-
-        const balance = await erc20.balanceOf(walletAddress);
-        const decimals = tokenDecimals[selectedAsset] ?? 18;
-        setWalletTokenBalance(ethers.formatUnits(balance, decimals));
-      } catch (error) {
-        console.error("Failed to load wallet token balance", error);
-        setWalletTokenBalance("0");
-      }
-    };
-
-    void loadWalletTokenBalance();
+      const balance = await erc20.balanceOf(walletAddress);
+      const decimals = tokenDecimals[selectedAsset] ?? 18;
+      setWalletTokenBalance(ethers.formatUnits(balance, decimals));
+    } catch (error) {
+      console.error("Failed to load wallet token balance", error);
+      setWalletTokenBalance("0");
+    }
   }, [selectedAsset, selectedChain, walletAddress]);
 
   useEffect(() => {
-    const fetchAgents = async () => {
-      const userAddress = walletAddress || fallbackAgentAddress;
+    void loadWalletTokenBalance();
+  }, [loadWalletTokenBalance]);
 
+  useEffect(() => {
+    if (!walletAddress) {
+      setAgents([]);
+      return;
+    }
+
+    const fetchAgents = async () => {
       try {
         const response = await fetch("/api/agents", {
           headers: {
-            userAddress,
+            userAddress: walletAddress,
           },
         });
 
         if (!response.ok) {
-          setAgents(defaultAgents);
+          setAgents([]);
           return;
         }
 
@@ -201,12 +370,11 @@ export default function Home() {
           id?: string;
           address?: string;
           vaultAddress?: string;
-          privateKey?: string;
           createdAt?: string;
         }>;
 
-        if (!Array.isArray(data) || data.length === 0) {
-          setAgents(defaultAgents);
+        if (!Array.isArray(data)) {
+          setAgents([]);
           return;
         }
 
@@ -225,37 +393,24 @@ export default function Home() {
               )
             : data;
 
-        const mappedAgents = (
-          filteredData.length > 0 ? filteredData : data
-        ).map((agent, index) => {
-          const wallet =
-            agent.address ?? `0x${index.toString(16).padStart(40, "0")}`;
-          const shortWallet =
-            wallet.length > 10
-              ? `${wallet.slice(0, 6)}...${wallet.slice(-4)}`
-              : wallet;
-
-          return {
-            name: `Agent ${index + 1}`,
-            strategy: agent.vaultAddress
-              ? `Vault ${agent.vaultAddress.slice(0, 6)}...${agent.vaultAddress.slice(-4)}`
-              : "On-chain strategy",
-            status: "Active",
-            pnl: "+$0",
-            risk: "Low",
-            wallet: shortWallet,
-          } satisfies Agent;
-        });
+        const mappedAgents = filteredData.map((agent, index) => ({
+          name: `Agent ${index + 1}`,
+          address: agent.address ?? "",
+          vaultAddress: agent.vaultAddress ?? "",
+          createdAt: agent.createdAt
+            ? new Date(agent.createdAt).toLocaleDateString()
+            : "",
+        } satisfies Agent));
 
         setAgents(mappedAgents);
       } catch (error) {
-        console.warn("Failed to load DB agents, using demo data:", error);
-        setAgents(defaultAgents);
+        console.warn("Failed to load agents:", error);
+        setAgents([]);
       }
     };
 
     void fetchAgents();
-  }, [fallbackAgentAddress, selectedChain, userVaults, walletAddress]);
+  }, [selectedChain, userVaults, walletAddress]);
 
   const paginatedVaults = useMemo(
     () =>
@@ -276,19 +431,22 @@ export default function Home() {
   );
 
   useEffect(() => {
-    const userAddress = walletAddress || fallbackAgentAddress;
-    const agentAddress = activeAgentAddress;
+    if (!walletAddress) {
+      setTradeIntents([]);
+      setPositions([]);
+      setInsurance([]);
+      return;
+    }
+
     const activeVaultAddress = selectedVault?.address ?? "";
+    const activeAgentAddress = agents[0]?.address ?? "";
 
     const fetchDashboardData = async () => {
       try {
-        const [vaultRes, tradeRes, positionRes, insuranceRes] =
+        const [tradeRes, positionRes, insuranceRes] =
           await Promise.allSettled([
             fetch(
-              `/api/vault/get-all-vaults?userAddress=${userAddress}&chainId=${selectedChainId}`,
-            ),
-            fetch(
-              `/api/trade-intent/agent/${agentAddress}?chainId=${selectedChainId}`,
+              `/api/trade-intent/user/${walletAddress}?chainId=${selectedChainId}`,
             ),
             activeVaultAddress
               ? fetch(
@@ -297,21 +455,14 @@ export default function Home() {
               : Promise.resolve(
                   new Response(JSON.stringify({ positions: [] })),
                 ),
-            activeVaultAddress
+            activeAgentAddress
               ? fetch(
-                  `/api/insurances?vaultAddress=${activeVaultAddress}&chainId=${selectedChainId}`,
+                  `/api/insurances?agentAddress=${activeAgentAddress}&chainId=${selectedChainId}`,
                 )
               : Promise.resolve(
                   new Response(JSON.stringify({ insurances: [] })),
                 ),
           ]);
-
-        if (vaultRes.status === "fulfilled" && vaultRes.value.ok) {
-          const data = await vaultRes.value.json();
-          if (Array.isArray(data?.vaults) && data.vaults.length > 0) {
-            setVaults(data.vaults);
-          }
-        }
 
         if (tradeRes.status === "fulfilled" && tradeRes.value.ok) {
           const data = (await tradeRes.value.json()) as {
@@ -320,107 +471,111 @@ export default function Home() {
               agentAddress?: string;
               tokenIn?: string;
               tokenOut?: string;
-              amountIn?: bigint | string | number;
+              amountIn?: string | number;
               status?: string;
               createdAt?: string | Date;
             }>;
           };
 
-          if (
-            Array.isArray(data?.tradeIntents) &&
-            data.tradeIntents.length > 0
-          ) {
-            const mappedTradeIntents = data.tradeIntents.map((item) => {
-              const pair =
-                item.tokenIn && item.tokenOut
-                  ? `${item.tokenIn.slice(0, 4)} / ${item.tokenOut.slice(0, 4)}`
-                  : "ETH / USDC";
+          const mappedTradeIntents = (data.tradeIntents ?? []).map((item) => {
+            const tokenInSymbol = resolveTokenSymbol(
+              selectedChain,
+              item.tokenIn,
+            );
+            const tokenOutSymbol = resolveTokenSymbol(
+              selectedChain,
+              item.tokenOut,
+            );
 
-              const rawStatus = String(item.status ?? "PENDING").toUpperCase();
-              const mappedStatus: TradeIntent["status"] =
-                rawStatus === "APPROVED"
-                  ? "Approved"
-                  : rawStatus === "REJECTED"
-                    ? "Review"
-                    : "Queued";
+            const rawStatus = String(item.status ?? "PENDING").toUpperCase();
+            const mappedStatus: TradeIntent["status"] =
+              rawStatus === "APPROVED"
+                ? "Approved"
+                : rawStatus === "REJECTED"
+                  ? "Review"
+                  : "Queued";
 
-              const normalizedAmount =
-                typeof item.amountIn === "bigint"
-                  ? item.amountIn.toString()
-                  : String(item.amountIn ?? "0");
+            return {
+              pair: `${tokenInSymbol} / ${tokenOutSymbol}`,
+              amount: formatTokenAmount(item.amountIn, tokenInSymbol),
+              status: mappedStatus,
+              eta: item.createdAt
+                ? new Date(item.createdAt).toLocaleDateString()
+                : "just now",
+              agent:
+                item.agentAddress && item.agentAddress.length > 10
+                  ? `${item.agentAddress.slice(0, 6)}...${item.agentAddress.slice(-4)}`
+                  : "Agent",
+            } satisfies TradeIntent;
+          });
 
-              const amount =
-                normalizedAmount && normalizedAmount !== "0"
-                  ? `$${normalizedAmount.slice(0, 8)}`
-                  : "$0";
-
-              return {
-                pair,
-                side: item.tokenIn ? "Swap" : "Buy",
-                amount,
-                status: mappedStatus,
-                eta: item.createdAt
-                  ? new Date(item.createdAt).toLocaleDateString()
-                  : "just now",
-                agent:
-                  item.agentAddress && item.agentAddress.length > 10
-                    ? `${item.agentAddress.slice(0, 6)}...${item.agentAddress.slice(-4)}`
-                    : "Agent",
-              } satisfies TradeIntent;
-            });
-
-            setTradeIntents(mappedTradeIntents);
-          }
+          setTradeIntents(mappedTradeIntents);
+        } else {
+          setTradeIntents([]);
         }
 
         if (positionRes.status === "fulfilled" && positionRes.value.ok) {
           const data = (await positionRes.value.json()) as {
             positions?: Array<{
-              asset?: string;
-              size?: string;
-              value?: string;
-              pnl?: string;
-              status?: Position["status"];
+              id?: string;
+              tokenInAddress?: string;
+              tokenOutAddress?: string;
+              amountIn?: string | number;
+              amountOut?: string | number;
+              isActive?: boolean;
+              createdAt?: string | number;
             }>;
           };
 
-          if (Array.isArray(data?.positions) && data.positions.length > 0) {
-            setPositions(
-              data.positions.map((item) => ({
-                asset: item.asset || "ETH",
-                size: item.size || "0",
-                value: item.value || "$0",
-                pnl: item.pnl || "+0%",
-                status: item.status || "Locked",
-              })),
-            );
-          }
+          setPositions(
+            (data.positions ?? []).map((item) => {
+              const tokenInSymbol = resolveTokenSymbol(
+                selectedChain,
+                item.tokenInAddress,
+              );
+              const tokenOutSymbol = resolveTokenSymbol(
+                selectedChain,
+                item.tokenOutAddress,
+              );
+
+              return {
+                id: item.id ?? `${item.tokenInAddress}-${item.createdAt}`,
+                pair: `${tokenInSymbol} → ${tokenOutSymbol}`,
+                amountIn: formatTokenAmount(item.amountIn, tokenInSymbol),
+                amountOut: formatTokenAmount(item.amountOut, tokenOutSymbol),
+                status: item.isActive ? "Active" : "Closed",
+                openedAt: formatOnChainTimestamp(item.createdAt),
+              } satisfies Position;
+            }),
+          );
+        } else {
+          setPositions([]);
         }
 
         if (insuranceRes.status === "fulfilled" && insuranceRes.value.ok) {
-          const data = await insuranceRes.value.json();
-          if (Array.isArray(data?.insurances) && data.insurances.length > 0) {
-            setInsurance([
-              {
-                label: "Protection pool",
-                value: data.insurances.length ? "$2.1M" : "$0",
-                change: "+$120K",
-                tone: "emerald",
-              },
-              {
-                label: "Claims pending",
-                value: data.insurances.length ? "$194K" : "$0",
-                change: `${data.insurances.length} active`,
-                tone: "amber",
-              },
-              {
-                label: "Coverage ratio",
-                value: data.insurances.length ? "96.4%" : "0%",
-                change: "+2.7%",
-                tone: "cyan",
-              },
-            ]);
-          }
+          const data = (await insuranceRes.value.json()) as {
+            insurances?: Array<{
+              id?: string;
+              premium?: string | number;
+              coverage?: string | number;
+              coverageDuration?: string | number;
+              valid?: boolean;
+              createdAt?: string | number;
+            }>;
+          };
+
+          setInsurance(
+            (data.insurances ?? []).map((item) => ({
+              id: item.id ?? String(item.createdAt ?? Math.random()),
+              premium: String(item.premium ?? "0"),
+              coverage: `${item.coverage ?? "0"}%`,
+              duration: formatDurationSeconds(item.coverageDuration),
+              valid: Boolean(item.valid),
+              createdAt: formatOnChainTimestamp(item.createdAt),
+            })),
+          );
+        } else {
+          setInsurance([]);
         }
       } catch (error) {
         console.error("Failed to load dashboard data", error);
@@ -428,14 +583,7 @@ export default function Home() {
     };
 
     fetchDashboardData();
-  }, [
-    activeAgentAddress,
-    fallbackAgentAddress,
-    selectedChain,
-    selectedChainId,
-    selectedVault,
-    walletAddress,
-  ]);
+  }, [agents, selectedChain, selectedChainId, selectedVault, walletAddress]);
 
   const handleChainChange = (nextChain: string) => {
     setSelectedChain(nextChain);
@@ -464,9 +612,51 @@ export default function Home() {
     openConnectModal();
   };
 
+  const refreshVaultAssets = async (vaultAddress: string) => {
+    const updatedAssets = await fetchVaultAssets(
+      vaultAddress,
+      selectedChain,
+      selectedChainId,
+    );
+
+    setVaults((currentVaults) =>
+      currentVaults.map((vault) =>
+        vault.address === vaultAddress
+          ? { ...vault, assets: updatedAssets }
+          : vault,
+      ),
+    );
+  };
+
   const handleVaultAction = async () => {
     if (!selectedVault) {
       setTransactionStatus("Select a vault to continue.");
+      return;
+    }
+
+    const requestedAmount = Number(amount);
+
+    if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
+      setTransactionStatus("Enter a valid amount.");
+      return;
+    }
+
+    if (vaultAction === "withdraw") {
+      const vaultAsset = selectedVault.assets.find(
+        (asset) => asset.token === selectedAsset,
+      );
+      const availableInVault = Number(vaultAsset?.availableBalance ?? "0");
+
+      if (!vaultAsset || requestedAmount > availableInVault) {
+        setTransactionStatus(
+          `Insufficient ${selectedAsset} balance in this vault (available: ${availableInVault}).`,
+        );
+        return;
+      }
+    } else if (requestedAmount > Number(walletTokenBalance)) {
+      setTransactionStatus(
+        `Insufficient ${selectedAsset} balance in your wallet (available: ${walletTokenBalance}).`,
+      );
       return;
     }
 
@@ -482,19 +672,24 @@ export default function Home() {
         selectedChain,
       );
 
+      await Promise.all([
+        refreshVaultAssets(selectedVault.address),
+        loadWalletTokenBalance(),
+      ]);
+
       setTransactionStatus(
         `${vaultAction === "deposit" ? "Deposit" : "Withdraw"} executed successfully.`,
       );
     } catch (error) {
       setTransactionStatus(
-        error instanceof Error ? error.message : "Vault transaction failed.",
+        getFriendlyErrorMessage(error, "Vault transaction failed."),
       );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleCreateVault = async () => {
+  const handleCreateVault = async (vaultName: string) => {
     if (!walletAddress) {
       await handleWalletConnect();
       if (!walletAddress) {
@@ -502,14 +697,13 @@ export default function Home() {
       }
     }
 
+    const trimmedName = vaultName.trim() || `${selectedChain} Strategy Vault`;
+
     setIsSubmitting(true);
     setTransactionStatus("");
 
     try {
-      const result = await createVaultOnFactory(
-        `${selectedChain} Strategy Vault`,
-        selectedChain,
-      );
+      const result = await createVaultOnFactory(trimmedName, selectedChain);
 
       setTransactionStatus(
         result.vaultAddress !== "0x0000000000000000000000000000000000000000"
@@ -521,15 +715,25 @@ export default function Home() {
         result.vaultAddress !== "0x0000000000000000000000000000000000000000"
       ) {
         const nextVault: Vault = {
-          id: `vault-${Date.now()}`,
-          name: `${selectedChain} Strategy Vault`,
+          id: `${result.vaultAddress}-${selectedChain}`,
+          name: trimmedName,
           chain: selectedChain,
           address: result.vaultAddress,
           totalValue: "$0",
           health: "Healthy",
           assets: [
-            { token: "USDC", balance: "0", apy: "0%", locked: "$0" },
-            { token: "ETH", balance: "0", apy: "0%", locked: "$0" },
+            {
+              token: "USDC",
+              totalDeposited: "0",
+              availableBalance: "0",
+              lockedPercent: 0,
+            },
+            {
+              token: "ETH",
+              totalDeposited: "0",
+              availableBalance: "0",
+              lockedPercent: 0,
+            },
           ],
         };
 
@@ -537,12 +741,25 @@ export default function Home() {
       }
     } catch (error) {
       setTransactionStatus(
-        error instanceof Error ? error.message : "Vault creation failed.",
+        getFriendlyErrorMessage(error, "Vault creation failed."),
       );
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const handleOpenNewVaultDialog = () => {
+    setNewVaultName(`${selectedChain} Strategy Vault`);
+    setIsNewVaultDialogOpen(true);
+  };
+
+  const handleConfirmCreateVault = async () => {
+    const vaultName = newVaultName;
+    setIsNewVaultDialogOpen(false);
+    await handleCreateVault(vaultName);
+  };
+
+  const validInsuranceCount = insurance.filter((item) => item.valid).length;
 
   const stats: Array<{
     label: string;
@@ -553,17 +770,27 @@ export default function Home() {
     {
       label: "TVL",
       value: selectedVault?.totalValue ?? "$0",
-      change: "+12.4%",
+      change: "Selected vault",
       tone: "emerald",
     },
-    { label: "Locked value", value: "$1.82M", change: "+6.9%", tone: "cyan" },
+    {
+      label: "Vaults deployed",
+      value: `${vaults.length}`,
+      change: selectedChain,
+      tone: "cyan",
+    },
     {
       label: "Active agents",
       value: `${agents.length}`,
-      change: "+3",
+      change: "Registered",
       tone: "violet",
     },
-    { label: "Insurance", value: "96.4%", change: "+2.7%", tone: "amber" },
+    {
+      label: "Insurance policies",
+      value: `${insurance.length}`,
+      change: `${validInsuranceCount} active`,
+      tone: "amber",
+    },
   ];
 
   const socialLinks = [
@@ -604,6 +831,17 @@ export default function Home() {
       ),
     },
   ];
+
+  if (!walletAddress) {
+    return (
+      <HomePage
+        onConnect={() => {
+          setIsWalletMenuOpen(false);
+          handleWalletConnect();
+        }}
+      />
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#050806] text-[#edf5ee]">
@@ -666,7 +904,7 @@ export default function Home() {
               selectedChain={selectedChain}
               selectedVaultId={selectedVaultId}
               onVaultSelect={setSelectedVaultId}
-              onCreateVault={handleCreateVault}
+              onCreateVault={handleOpenNewVaultDialog}
               isSubmitting={isSubmitting}
             />
 
@@ -681,39 +919,44 @@ export default function Home() {
             titleClassName="text-[clamp(1.8rem,2.2vw,2.8rem)] font-medium leading-[0.8] text-[#99e836]"
           >
             <div className="space-y-3">
-              {[
-                {
-                  token: "USDC",
-                  balance: "86,420",
-                  apy: "5.1%",
-                  locked: "$480K",
-                },
-                { token: "ETH", balance: "12.8", apy: "3.4%", locked: "$232K" },
-                {
-                  token: "ARB",
-                  balance: "18,640",
-                  apy: "7.8%",
-                  locked: "$140K",
-                },
-              ].map((token) => (
-                <div
-                  key={token.token}
-                  className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#0b120f] p-3"
-                >
-                  <div>
-                    <p className="font-medium text-[#edf5ee]">{token.token}</p>
-                    <p className="text-xs text-slate-400">
-                      Locked: {token.locked}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium text-[#edf5ee]">
-                      {token.balance}
-                    </p>
-                    <p className="text-xs text-emerald-300">APY {token.apy}</p>
-                  </div>
+              {!selectedVault || selectedVault.assets.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-white/10 bg-[#0b120f] p-4 text-center text-sm text-slate-400">
+                  Select a vault to see its assets.
                 </div>
-              ))}
+              ) : (
+                selectedVault.assets.map((token) => (
+                  <div
+                    key={token.token}
+                    className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#0b120f] p-3"
+                  >
+                    <div>
+                      <p className="font-medium text-[#edf5ee]">
+                        {token.token}
+                      </p>
+                      <Tooltip
+                        label={`${token.lockedPercent.toFixed(1)}% of this vault's ${token.token} is locked in active positions`}
+                      >
+                        <p
+                          className={`text-xs ${
+                            token.lockedPercent > 0
+                              ? "text-amber-300"
+                              : "text-slate-400"
+                          }`}
+                        >
+                          {token.lockedPercent.toFixed(1)}% locked
+                        </p>
+                      </Tooltip>
+                    </div>
+                    <Tooltip
+                      label={`Current ${token.token} held by this vault (available + locked)`}
+                    >
+                      <p className="font-medium text-[#edf5ee]">
+                        {token.totalDeposited}
+                      </p>
+                    </Tooltip>
+                  </div>
+                ))
+              )}
             </div>
 
             <div className="mt-4 space-y-3 rounded-[22px] border border-white/10 bg-[#0b120f] p-3">
@@ -774,13 +1017,17 @@ export default function Home() {
                   onChange={(event) => setSelectedAsset(event.target.value)}
                   className="w-full rounded-xl border border-white/10 bg-[#101915] px-3 py-2.5 text-[#edf5ee] outline-none"
                 >
-                  {Object.keys(tokenDecimals).map((token) => (
+                  {supportedAssets.map((token) => (
                     <option key={token} value={token}>
                       {token}
                     </option>
                   ))}
                 </select>
               </div>
+
+              <p className="text-[11px] text-slate-500">
+                Wallet balance: {walletTokenBalance} {selectedAsset}
+              </p>
 
               <div className="flex flex-col gap-3 sm:flex-row">
                 <button
@@ -808,13 +1055,15 @@ export default function Home() {
               </div>
 
               {statusMessage ? (
-                <p className="text-xs text-slate-300">{statusMessage}</p>
+                <p className="max-h-24 overflow-y-auto break-words text-xs text-slate-300">
+                  {statusMessage}
+                </p>
               ) : null}
             </div>
           </DashboardCard>
 
           <DashboardCard
-            title="Risk monitor"
+            title="Agent insurance"
             className="scroll-mt-24"
             titleClassName="text-[clamp(1.8rem,2.2vw,2.8rem)] font-medium leading-[0.8] text-[#99e836]"
           >
@@ -841,6 +1090,16 @@ export default function Home() {
           </div>
         </footer>
       </div>
+
+      <NewVaultDialog
+        isOpen={isNewVaultDialogOpen}
+        chainLabel={selectedChain}
+        name={newVaultName}
+        onNameChange={setNewVaultName}
+        onCancel={() => setIsNewVaultDialogOpen(false)}
+        onSubmit={handleConfirmCreateVault}
+        isSubmitting={isSubmitting}
+      />
     </main>
   );
 }

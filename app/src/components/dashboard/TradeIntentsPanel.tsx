@@ -27,52 +27,58 @@ export function TradeIntentsPanel({
         </div>
       </div>
 
-      <div className="mt-5 space-y-3">
-        {intents.map((intent, index) => (
-          <article
-            key={`${intent.pair}-${intent.eta}-${index}`}
-            className="group rounded-[22px] border border-[#99e836]/8 bg-transparent p-4 transition duration-300 hover:-translate-y-0.5 hover:border-[#99e836]/20"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase text-[#afc4b3]">
-                  {intent.agent}
-                </p>
-                <h3 className="mt-2 text-xl font-semibold text-[#edf5ee]">
-                  {intent.pair}
-                </h3>
+      {intents.length === 0 ? (
+        <div className="mt-5 rounded-2xl border border-dashed border-[#99e836]/15 bg-transparent p-6 text-center text-sm text-slate-400">
+          No trade intents submitted for this agent yet.
+        </div>
+      ) : (
+        <div className="mt-5 space-y-3">
+          {intents.map((intent, index) => (
+            <article
+              key={`${intent.pair}-${intent.eta}-${index}`}
+              className="group rounded-[22px] border border-[#99e836]/8 bg-transparent p-4 transition duration-300 hover:-translate-y-0.5 hover:border-[#99e836]/20"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase text-[#afc4b3]">
+                    {intent.agent}
+                  </p>
+                  <h3 className="mt-2 text-xl font-semibold text-[#edf5ee]">
+                    {intent.pair}
+                  </h3>
+                </div>
+                <span
+                  className={`rounded-full px-2 py-1 text-[10px] font-medium ${
+                    intent.status === "Queued"
+                      ? "bg-slate-700 text-slate-200"
+                      : intent.status === "Review"
+                        ? "bg-amber-500/15 text-amber-300"
+                        : intent.status === "Approved"
+                          ? "bg-emerald-500/15 text-emerald-300"
+                          : "bg-sky-500/15 text-sky-300"
+                  }`}
+                >
+                  {intent.status}
+                </span>
               </div>
-              <span
-                className={`rounded-full px-2 py-1 text-[10px] font-medium ${
-                  intent.status === "Queued"
-                    ? "bg-slate-700 text-slate-200"
-                    : intent.status === "Review"
-                      ? "bg-amber-500/15 text-amber-300"
-                      : intent.status === "Approved"
-                        ? "bg-emerald-500/15 text-emerald-300"
-                        : "bg-sky-500/15 text-sky-300"
-                }`}
-              >
-                {intent.status}
-              </span>
-            </div>
 
-            <div className="mt-5 flex items-center justify-between text-[0.95rem] text-slate-200">
-              <span>{intent.side}</span>
-              <span className="text-[1.15rem] font-semibold text-[#edf5ee]">
-                {intent.amount}
-              </span>
-            </div>
-
-            <div className="mt-4 border-t border-[#99e836]/8 pt-3 text-[0.7rem] uppercase text-slate-300">
-              <div className="flex items-center justify-between">
-                <span>ETA</span>
-                <span>{intent.eta}</span>
+              <div className="mt-5 flex items-center justify-between text-[0.95rem] text-slate-200">
+                <span>Swap</span>
+                <span className="text-[1.15rem] font-semibold text-[#edf5ee]">
+                  {intent.amount}
+                </span>
               </div>
-            </div>
-          </article>
-        ))}
-      </div>
+
+              <div className="mt-4 border-t border-[#99e836]/8 pt-3 text-[0.7rem] uppercase text-slate-300">
+                <div className="flex items-center justify-between">
+                  <span>ETA</span>
+                  <span>{intent.eta}</span>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
 
       <div className="mt-5 flex items-center justify-between border-t border-[#99e836]/10 pt-4">
         <button

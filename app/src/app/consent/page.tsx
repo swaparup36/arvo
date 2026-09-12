@@ -2,11 +2,11 @@
 
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useState } from "react";
 import { useAccount, useSignMessage } from "wagmi";
 
 import { useUserVaults } from "@/hooks/useUserVaults";
-import { chainOptions, defaultVaults } from "@/lib/dashboard-data";
+import { chainOptions } from "@/lib/dashboard-data";
 import { buildSignInMessage } from "@/lib/siwe";
 
 function ConsentForm() {
@@ -22,17 +22,9 @@ function ConsentForm() {
   const [isDenied, setIsDenied] = useState<boolean>(false);
 
   const walletAddress = address ?? "";
-  const { vaults, isLoading, error } = useUserVaults(
+  const { vaults: realVaults, isLoading, error } = useUserVaults(
     selectedChain,
     walletAddress,
-  );
-
-  // useUserVaults falls back to demo vaults; binding an agent to one of those
-  // placeholder addresses would point it at a vault that does not exist.
-  const realVaults = useMemo(
-    () =>
-      vaults.filter((vault) => !defaultVaults.some((demo) => demo.id === vault.id)),
-    [vaults],
   );
 
   const selectedVault =

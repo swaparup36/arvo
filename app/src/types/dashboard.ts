@@ -1,15 +1,12 @@
 export type Agent = {
   name: string;
-  strategy: string;
-  status: "Active" | "Review" | "Paused";
-  pnl: string;
-  risk: "Low" | "Medium" | "High";
-  wallet: string;
+  address: string;
+  vaultAddress: string;
+  createdAt: string;
 };
 
 export type TradeIntent = {
   pair: string;
-  side: "Buy" | "Sell" | "Swap";
   amount: string;
   status: "Queued" | "Review" | "Approved" | "Executed";
   eta: string;
@@ -17,25 +14,28 @@ export type TradeIntent = {
 };
 
 export type Position = {
-  asset: string;
-  size: string;
-  value: string;
-  pnl: string;
-  status: "Locked" | "Available" | "Expiring";
+  id: string;
+  pair: string;
+  amountIn: string;
+  amountOut: string;
+  status: "Active" | "Closed";
+  openedAt: string;
 };
 
 export type InsuranceItem = {
-  label: string;
-  value: string;
-  change: string;
-  tone: "emerald" | "amber" | "cyan";
+  id: string;
+  premium: string;
+  coverage: string;
+  duration: string;
+  valid: boolean;
+  createdAt: string;
 };
 
 export type VaultAsset = {
   token: string;
-  balance: string;
-  apy: string;
-  locked: string;
+  totalDeposited: string;
+  availableBalance: string;
+  lockedPercent: number;
 };
 
 export type Vault = {

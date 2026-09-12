@@ -1,11 +1,9 @@
 import httpx
 from fastapi import FastAPI, Header, HTTPException
-from .client import submit_report
+from .assessment import assess_and_submit
 from .config import Settings
 from .models import AssessmentRequest, RiskReport
-from .policy import assess
-from .providers import MarketDataUnavailable, collect_market_snapshot
-from .signer import sign
+from .providers import MarketDataUnavailable
 
 app = FastAPI(title="Arvo Risk Engine", version="0.1.0")
 settings = Settings()
@@ -25,11 +23,8 @@ async def create_assessment(request: AssessmentRequest, x_arvo_callback_secret: 
     if existing:
         return existing
     try:
-        market = await collect_market_snapshot(request.intent, settings)
+        report = await assess_and_submit(request.intent, settings)
     except (httpx.HTTPError, KeyError, ValueError, MarketDataUnavailable) as exc:
         raise HTTPException(status_code=503, detail=f"risk data unavailable: {exc}") from exc
-    report = sign(request.intent.intentId, assess(request.intent, market), settings.risk_engine_private_key,
-                  settings.chain_id, settings.verifying_contract)
-    await submit_report(report, settings.backend_url, settings.report_path)
     _reports[request.intent.intentId] = report
     return report

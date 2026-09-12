@@ -13,13 +13,7 @@ export async function POST(req: Request) {
 
         const clientId = randomUUID();
 
-        const redisSaveClient = redis.hset("clients", clientId, JSON.stringify({ redirect_uris }));
-
-        if (!redisSaveClient) {
-            return NextResponse.json({ 
-                error: "failed_to_save_client"
-            }, { status: 500 });
-        }
+        await redis.hset("clients", clientId, JSON.stringify({ redirect_uris }));
 
         return NextResponse.json({
             client_id: clientId,

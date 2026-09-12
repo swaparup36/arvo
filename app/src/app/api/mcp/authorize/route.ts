@@ -14,13 +14,15 @@ export async function GET(req: Request) {
         const codeChallengeMethod = queryParams.get("code_challenge_method");
         const resource = queryParams.get("resource");
 
-        if (!clientId || !await redis.hget("clients", clientId)) {
+        const clientJson = clientId ? await redis.hget("clients", clientId) : null;
+
+        if (!clientJson) {
             return NextResponse.json({ error: "invalid_client" }, { status: 400 });
         }
 
-        const redirectUrisJson = await redis.hget("clients", clientId);
-        const redirectUris = JSON.parse(redirectUrisJson as string);
-        if (!redirectUri || !redirectUris.includes(redirectUri as string)) {
+        // /register stores { redirect_uris: [...] }, not a bare array.
+        const { redirect_uris: redirectUris } = JSON.parse(clientJson);
+        if (!redirectUri || !redirectUris?.includes(redirectUri)) {
             return NextResponse.json({ error: "invalid_redirect_uri" }, { status: 400 });
         }
 

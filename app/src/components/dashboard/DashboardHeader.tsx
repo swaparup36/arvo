@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import { chainOptions } from "@/lib/dashboard-data";
 import { WalletButton } from "@/components/dashboard/WalletButton";
 
@@ -19,15 +21,14 @@ export function DashboardHeader({
   return (
     <header className="sticky top-0 z-20 mb-6 rounded-3xl border border-[#99e836]/10 bg-[#0a120d]/60 px-4 py-3 shadow-[0_12px_40px_rgba(0,0,0,0.28)] backdrop-blur-md sm:px-6">
       <nav className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[#99e836]/30 bg-[#99e836]/10 text-xs font-semibold text-[#c4f57a]">
-            AR
-          </div>
-          <div>
-            <div className="text-[10px] uppercase text-[#99e836]">Arvo</div>
-            <div className="text-sm text-slate-300">Protocol</div>
-          </div>
-        </div>
+        <Image
+          src="/arvo-logo-no-bg.png"
+          alt="Arvo"
+          width={56}
+          height={56}
+          priority
+          className="h-14 w-14 -my-2"
+        />
 
         <div className="hidden items-center gap-7 text-sm text-slate-300 md:flex">
           <a href="#overview" className="transition hover:text-[#c4f57a]">

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import { DocsSidebar } from "@/components/docs/DocsSidebar";
@@ -10,9 +11,14 @@ export default function DocsLayout({ children }: LayoutProps<"/docs">) {
         <nav className="flex h-full items-center justify-between gap-6 px-5 lg:px-6">
           <div className="flex items-center gap-6">
             <Link href="/" className="flex items-center gap-2.5">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/15 bg-white/5 text-[10px] font-semibold text-[#c4f57a]">
-                AR
-              </span>
+              <Image
+                src="/arvo-logo-no-bg.png"
+                alt="Arvo"
+                width={40}
+                height={40}
+                priority
+                className="h-10 w-10"
+              />
               <span className="text-sm text-slate-400">
                 Arvo <span className="text-slate-700">/</span>{" "}
                 <span className="font-medium text-[#edf5ee]">Docs</span>

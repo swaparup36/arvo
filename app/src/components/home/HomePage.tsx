@@ -113,7 +113,7 @@ export function HomePage({ onConnect }: { onConnect: () => void }) {
                 How it works
               </a>
               <a
-                href="/connect-agents"
+                href="/docs/connect-agents"
                 className="transition hover:text-[#c4f57a]"
               >
                 Connect agents
@@ -154,7 +154,7 @@ export function HomePage({ onConnect }: { onConnect: () => void }) {
                 Connect wallet to enter dashboard
               </button>
               <a
-                href="/connect-agents"
+                href="/docs/connect-agents"
                 className="rounded-xl border border-white/10 bg-[#101915] px-6 py-3 text-sm font-medium text-slate-300 transition hover:border-[#99e836]/30 hover:text-[#edf5ee]"
               >
                 Connect an agent instead

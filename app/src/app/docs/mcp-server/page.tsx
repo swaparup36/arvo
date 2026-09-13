@@ -88,14 +88,14 @@ const chains = [
 
 function ToolCard({ tool }: { tool: Tool }) {
   return (
-    <section
-      id={tool.name}
-      className="scroll-mt-24 rounded-[28px] border border-[#99e836]/20 bg-[#0b120f] p-5 sm:p-6"
-    >
-      <h3 className="font-mono text-[0.96rem] font-medium text-[#99e836]">
+    <section className="border-t border-white/10 pt-10">
+      <h3
+        id={tool.name}
+        className="scroll-mt-20 font-mono text-[1.15rem] font-semibold text-[#c4f57a]"
+      >
         {tool.name}
       </h3>
-      <p className="mt-2 text-xs leading-relaxed text-slate-300">
+      <p className="mt-2 text-[15px] leading-7 text-slate-300">
         {tool.summary}
       </p>
 
@@ -120,7 +120,7 @@ function ToolCard({ tool }: { tool: Tool }) {
                 <td className="py-2 pr-3 font-mono text-[11px] text-slate-400">
                   {param.type}
                 </td>
-                <td className="py-2 text-[11px] leading-relaxed text-slate-300">
+                <td className="py-2 text-[15px] leading-7 text-slate-300">
                   {param.description}
                 </td>
               </tr>
@@ -129,14 +129,12 @@ function ToolCard({ tool }: { tool: Tool }) {
         </table>
       </div>
 
-      <div className="mt-4 rounded-xl border border-white/10 bg-[#101915] px-3 py-2.5">
-        <div className="text-[11px] text-slate-400">Returns</div>
-        <p className="mt-1 text-[11px] leading-relaxed text-slate-300">
-          {tool.returns}
-        </p>
-      </div>
+      <p className="mt-4 text-[15px] leading-7 text-slate-300">
+        <span className="font-medium text-[#edf5ee]">Returns —</span>{" "}
+        {tool.returns}
+      </p>
 
-      <ul className="mt-3 list-disc space-y-1 pl-4 text-[11px] leading-relaxed text-slate-400">
+      <ul className="mt-3 list-disc space-y-1 pl-4 text-[15px] leading-7 text-slate-400">
         {tool.notes.map((note) => (
           <li key={note}>{note}</li>
         ))}
@@ -149,58 +147,26 @@ export default function McpServerDocsPage() {
   const mcpUrl = `${env.BASE_MCP_URL}/resources`;
 
   return (
-    <main className="min-h-screen bg-[#050806] text-[#edf5ee]">
-      <div className="mx-auto max-w-3xl px-4 py-5 sm:px-6 lg:px-8">
-        <header className="sticky top-0 z-20 mb-6 rounded-3xl border border-[#99e836]/10 bg-[#0a120d]/60 px-4 py-3 shadow-[0_12px_40px_rgba(0,0,0,0.28)] backdrop-blur-md sm:px-6">
-          <nav className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[#99e836]/30 bg-[#99e836]/10 text-xs font-semibold text-[#c4f57a]">
-                AR
-              </div>
-              <div>
-                <div className="text-[10px] uppercase text-[#99e836]">Arvo</div>
-                <div className="text-sm text-slate-300">MCP server</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link
-                href="/connect-agents"
-                className="rounded-full border border-[#99e836]/12 bg-[#101915] px-3 py-2.5 text-sm text-slate-300 transition hover:border-[#99e836]/50 hover:text-[#c4f57a]"
-              >
-                Connect
-              </Link>
-              <Link
-                href="/"
-                className="rounded-full border border-[#99e836]/12 bg-[#101915] px-3 py-2.5 text-sm text-slate-300 transition hover:border-[#99e836]/50 hover:text-[#c4f57a]"
-              >
-                Dashboard
-              </Link>
-            </div>
-          </nav>
-        </header>
-
-        <div className="rounded-[28px] border border-[#99e836]/20 bg-[#0b120f] p-6">
-          <h1 className="text-[clamp(1.6rem,2.2vw,2.2rem)] font-medium leading-[1] text-[#99e836]">
+    <>
+      <div className="pb-12">
+          <h1 className="text-[clamp(2.2rem,3.4vw,3rem)] font-semibold leading-[1.05] tracking-tight text-[#edf5ee]">
             MCP server reference
           </h1>
-          <p className="mt-3 text-xs leading-relaxed text-slate-300">
+          <p className="mt-5 text-[17px] leading-8 text-slate-400">
             Arvo&apos;s MCP server gives an agent four tools: one to price a
             swap, two to read the vault, and one to trade. Every call is scoped
             to the vault you bound at approval time, so an agent can only move
             funds you explicitly handed it.
           </p>
 
-          <div className="mt-4 rounded-xl border border-white/10 bg-[#101915] px-3 py-2.5">
-            <div className="text-[11px] text-slate-400">Endpoint</div>
-            <pre className="mt-1 overflow-x-auto font-mono text-[12px] text-[#edf5ee]">
-              {mcpUrl}
-            </pre>
-          </div>
+          <pre className="mt-5 overflow-x-auto rounded-lg border border-white/10 bg-[#0d1411] px-4 py-3 font-mono text-[13px] text-[#edf5ee]">
+            {mcpUrl}
+          </pre>
 
-          <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
+          <p className="mt-3 text-[15px] leading-7 text-slate-400">
             Streamable HTTP, OAuth 2.1 with PKCE.{" "}
             <Link
-              href="/connect-agents"
+              href="/docs/connect-agents"
               className="text-[#99e836] hover:underline"
             >
               Connecting an agent
@@ -209,56 +175,59 @@ export default function McpServerDocsPage() {
           </p>
         </div>
 
-        <div className="mt-5 rounded-[28px] border border-[#99e836]/20 bg-[#0b120f] p-5 sm:p-6">
-          <h2 className="text-[0.96rem] font-medium text-[#99e836]">
+        <div className="mt-10 border-t border-white/10 pt-8">
+          <h2 className="text-[1.05rem] font-semibold text-[#edf5ee]">
             The tools
           </h2>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <ul className="mt-4 space-y-1.5">
             {tools.map((tool) => (
-              <a
-                key={tool.name}
-                href={`#${tool.name}`}
-                className="rounded-xl border border-white/10 bg-[#101915] px-3 py-2 font-mono text-[12px] text-[#c4f57a] transition hover:border-[#99e836]/50"
-              >
-                {tool.name}
-              </a>
+              <li key={tool.name}>
+                <a
+                  href={`#${tool.name}`}
+                  className="font-mono text-[14px] text-[#c4f57a] hover:underline"
+                >
+                  {tool.name}
+                </a>
+              </li>
             ))}
-          </div>
-          <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
+          </ul>
+          <p className="mt-3 text-[15px] leading-7 text-slate-400">
             All parameters are required — none of the schemas declare optionals.
             Token amounts are whole units (1.5 USDC, not 1500000); Arvo applies
             each token&apos;s decimals server-side.
           </p>
         </div>
 
-        <div className="mt-5 space-y-5">
+        <div className="mt-10 space-y-10">
           {tools.map((tool) => (
             <ToolCard key={tool.name} tool={tool} />
           ))}
         </div>
 
-        <section className="mt-5 rounded-[28px] border border-[#99e836]/20 bg-[#0b120f] p-5 sm:p-6">
-          <h2 className="text-[0.96rem] font-medium text-[#99e836]">
+        <section className="mt-10 border-t border-white/10 pt-8">
+          <h2 className="text-[1.05rem] font-semibold text-[#edf5ee]">
             Chain IDs
           </h2>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <dl className="mt-4 divide-y divide-white/10 border-y border-white/10">
             {chains.map((chain) => (
               <div
                 key={chain.id}
-                className="rounded-xl border border-white/10 bg-[#101915] px-3 py-2 text-[11px] text-slate-300"
+                className="flex items-center justify-between py-2.5 text-[15px]"
               >
-                {chain.name}{" "}
-                <span className="font-mono text-[#c4f57a]">{chain.id}</span>
+                <dt className="text-slate-300">{chain.name}</dt>
+                <dd className="font-mono text-[13px] text-[#c4f57a]">
+                  {chain.id}
+                </dd>
               </div>
             ))}
-          </div>
+          </dl>
         </section>
 
-        <section className="mt-5 rounded-[28px] border border-[#99e836]/20 bg-[#0b120f] p-5 sm:p-6">
-          <h2 className="text-[0.96rem] font-medium text-[#99e836]">
+        <section className="mt-10 border-t border-white/10 pt-8">
+          <h2 className="text-[1.05rem] font-semibold text-[#edf5ee]">
             A typical run
           </h2>
-          <ol className="mt-3 list-decimal space-y-1.5 pl-4 text-xs leading-relaxed text-slate-300">
+          <ol className="mt-3 list-decimal space-y-1.5 pl-4 text-[15px] leading-7 text-slate-300">
             <li>
               <span className="font-mono text-[12px] text-[#c4f57a]">
                 get-all-tokens
@@ -290,8 +259,8 @@ export default function McpServerDocsPage() {
           </ol>
         </section>
 
-        <section className="mt-5 rounded-[28px] border border-[#99e836]/20 bg-[#0b120f] p-5 sm:p-6">
-          <h2 className="text-[0.96rem] font-medium text-[#99e836]">Errors</h2>
+        <section className="mt-10 border-t border-white/10 pt-8">
+          <h2 className="text-[1.05rem] font-semibold text-[#edf5ee]">Errors</h2>
           <ul className="mt-3 list-disc space-y-1 pl-4 text-xs leading-relaxed text-slate-400">
             <li>
               <span className="text-slate-300">
@@ -313,11 +282,10 @@ export default function McpServerDocsPage() {
           </ul>
         </section>
 
-        <p className="mt-6 pb-10 text-center text-[11px] text-slate-500">
-          Tools are scoped to one vault per agent, and every trade is signed by
-          the agent&apos;s own wallet before it is insured and executed.
-        </p>
-      </div>
-    </main>
+      <p className="mt-6 pb-10 text-center text-[11px] text-slate-500">
+        Tools are scoped to one vault per agent, and every trade is signed by
+        the agent&apos;s own wallet before it is insured and executed.
+      </p>
+    </>
   );
 }

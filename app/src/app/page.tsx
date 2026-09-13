@@ -41,62 +41,112 @@ import type {
 
 const ETH_ADDRESS = "0x0000000000000000000000000000000000000000";
 
-async function fetchVaultAssets(
+type VaultHoldings = Pick<Vault, "native" | "assets" | "totalValue">;
+
+const emptyAsset = (token: string): VaultAsset => ({
+  token,
+  totalDeposited: "0",
+  availableBalance: "0",
+  lockedPercent: 0,
+});
+
+// on-chain balance is the source of truth; the vault contract only tells us how
+// much of it is locked in open positions
+async function toVaultAsset(
   vaultAddress: string,
-  chain: string,
   chainId: string,
-): Promise<VaultAsset[]> {
-  const usdcAddress = tokenAddressesByChain[chain]?.USDC;
-  const trackedTokens: Array<{ symbol: string; address: string }> = [
-    { symbol: "ETH", address: ETH_ADDRESS },
-    ...(usdcAddress && usdcAddress !== ETH_ADDRESS
-      ? [{ symbol: "USDC", address: usdcAddress }]
-      : []),
-  ];
+  symbol: string,
+  address: string,
+  decimals: number,
+  balance: bigint,
+): Promise<VaultAsset> {
+  const zero = BigInt(0);
+  let locked = zero;
 
-  return Promise.all(
-    trackedTokens.map(async ({ symbol, address }) => {
-      const empty = {
-        token: symbol,
-        totalDeposited: "0",
-        availableBalance: "0",
-        lockedPercent: 0,
-      } satisfies VaultAsset;
+  try {
+    const response = await fetch(
+      `/api/vault/get-vault-balance?vaultAddress=${vaultAddress}&asset=${address}&chainId=${chainId}`,
+    );
 
-      try {
-        const response = await fetch(
-          `/api/vault/get-vault-balance?vaultAddress=${vaultAddress}&asset=${address}&chainId=${chainId}`,
-        );
+    if (response.ok) {
+      const data = (await response.json()) as { locked?: string };
+      locked = BigInt(data.locked ?? "0");
+    }
+  } catch (error) {
+    console.warn(`Failed to load locked ${symbol} balance for vault`, error);
+  }
 
-        if (!response.ok) {
-          return empty;
-        }
+  if (locked > balance) {
+    locked = balance;
+  }
 
-        const data = (await response.json()) as {
-          available?: string;
-          locked?: string;
-        };
-        const available = BigInt(data.available ?? "0");
-        const locked = BigInt(data.locked ?? "0");
-        const total = available + locked;
-        const decimals = tokenDecimals[symbol] ?? 18;
-        const zero = BigInt(0);
+  return {
+    token: symbol,
+    totalDeposited: ethers.formatUnits(balance, decimals),
+    availableBalance: ethers.formatUnits(balance - locked, decimals),
+    lockedPercent:
+      balance > zero ? Number((locked * BigInt(10000)) / balance) / 100 : 0,
+  };
+}
 
-        return {
-          token: symbol,
-          totalDeposited: ethers.formatUnits(total, decimals),
-          availableBalance: ethers.formatUnits(available, decimals),
-          lockedPercent:
-            total > zero
-              ? Number((locked * BigInt(10000)) / total) / 100
-              : 0,
-        } satisfies VaultAsset;
-      } catch (error) {
-        console.warn(`Failed to load ${symbol} balance for vault`, error);
-        return empty;
-      }
-    }),
-  );
+async function fetchVaultHoldings(
+  vaultAddress: string,
+  chainId: string,
+): Promise<VaultHoldings> {
+  try {
+    const response = await fetch(
+      `/api/vault/get-all-tokens?vaultAddress=${vaultAddress}&chainId=${chainId}`,
+    );
+
+    if (!response.ok) {
+      throw new Error(`get-all-tokens returned ${response.status}`);
+    }
+
+    const data = (await response.json()) as {
+      native?: { symbol: string; decimals: number; balance: string };
+      tokens?: Array<{
+        address: string;
+        symbol: string;
+        decimals: number;
+        balance: string;
+      }>;
+    };
+
+    const nativeSymbol = data.native?.symbol ?? "ETH";
+    const [native, ...assets] = await Promise.all([
+      toVaultAsset(
+        vaultAddress,
+        chainId,
+        nativeSymbol,
+        ETH_ADDRESS,
+        data.native?.decimals ?? 18,
+        BigInt(data.native?.balance ?? "0"),
+      ),
+      ...(data.tokens ?? []).map((token) =>
+        toVaultAsset(
+          vaultAddress,
+          chainId,
+          token.symbol,
+          token.address,
+          token.decimals,
+          BigInt(token.balance),
+        ),
+      ),
+    ]);
+
+    return {
+      native,
+      assets,
+      totalValue: `${native.totalDeposited} ${native.token}`,
+    };
+  } catch (error) {
+    console.warn("Failed to load vault holdings", error);
+    return {
+      native: emptyAsset("ETH"),
+      assets: [],
+      totalValue: "0 ETH",
+    };
+  }
 }
 
 function getFriendlyErrorMessage(error: unknown, fallback: string): string {
@@ -182,6 +232,9 @@ export default function Home() {
   const [selectedChain, setSelectedChain] = useState<string>(chainOptions[1]);
   const [vaults, setVaults] = useState<Vault[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [selectedAgentAddress, setSelectedAgentAddress] = useState<string | null>(
+    null,
+  );
   const [tradeIntents, setTradeIntents] = useState<TradeIntent[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [insurance, setInsurance] = useState<InsuranceItem[]>([]);
@@ -198,7 +251,7 @@ export default function Home() {
   const walletAddress = address ?? "";
   const { vaults: userVaults } = useUserVaults(selectedChain, walletAddress);
   const { error: authError } = useWalletAuth();
-  const selectedChainId = chainIdMap[selectedChain] ?? "8453";
+  const selectedChainId = chainIdMap[selectedChain];
   const supportedAssets = useMemo(
     () => getSupportedAssetsForChain(selectedChain),
     [selectedChain],
@@ -265,11 +318,10 @@ export default function Home() {
       const enrichedVaults = await Promise.all(
         userVaults.map(async (vault) => ({
           ...vault,
-          assets: await fetchVaultAssets(
+          ...(await fetchVaultHoldings(
             vault.address,
-            vault.chain,
             chainIdMap[vault.chain] ?? selectedChainId,
-          ),
+          )),
         })),
       );
 
@@ -347,71 +399,6 @@ export default function Home() {
     void loadWalletTokenBalance();
   }, [loadWalletTokenBalance]);
 
-  useEffect(() => {
-    if (!walletAddress) {
-      setAgents([]);
-      return;
-    }
-
-    const fetchAgents = async () => {
-      try {
-        const response = await fetch("/api/agents", {
-          headers: {
-            userAddress: walletAddress,
-          },
-        });
-
-        if (!response.ok) {
-          setAgents([]);
-          return;
-        }
-
-        const data = (await response.json()) as Array<{
-          id?: string;
-          address?: string;
-          vaultAddress?: string;
-          createdAt?: string;
-        }>;
-
-        if (!Array.isArray(data)) {
-          setAgents([]);
-          return;
-        }
-
-        const vaultAddressesForChain = new Set(
-          userVaults
-            .filter((vault) => vault.chain === selectedChain)
-            .map((vault) => vault.address.toLowerCase()),
-        );
-
-        const filteredData =
-          vaultAddressesForChain.size > 0
-            ? data.filter(
-                (agent) =>
-                  !!agent.vaultAddress &&
-                  vaultAddressesForChain.has(agent.vaultAddress.toLowerCase()),
-              )
-            : data;
-
-        const mappedAgents = filteredData.map((agent, index) => ({
-          name: `Agent ${index + 1}`,
-          address: agent.address ?? "",
-          vaultAddress: agent.vaultAddress ?? "",
-          createdAt: agent.createdAt
-            ? new Date(agent.createdAt).toLocaleDateString()
-            : "",
-        } satisfies Agent));
-
-        setAgents(mappedAgents);
-      } catch (error) {
-        console.warn("Failed to load agents:", error);
-        setAgents([]);
-      }
-    };
-
-    void fetchAgents();
-  }, [selectedChain, userVaults, walletAddress]);
-
   const paginatedVaults = useMemo(
     () =>
       vaults.slice(
@@ -430,6 +417,70 @@ export default function Home() {
     [selectedChain, selectedVaultId, vaults],
   );
 
+  const selectedVaultAddress = selectedVault?.address ?? "";
+
+  // agents belong to a vault, so the selected vault scopes the list
+  useEffect(() => {
+    if (!walletAddress || !selectedVaultAddress) {
+      setAgents([]);
+      setSelectedAgentAddress(null);
+      return;
+    }
+
+    const fetchAgents = async () => {
+      try {
+        const response = await fetch("/api/agents", {
+          headers: {
+            userAddress: walletAddress,
+          },
+        });
+
+        const data = response.ok ? await response.json() : null;
+
+        if (!Array.isArray(data)) {
+          setAgents([]);
+          setSelectedAgentAddress(null);
+          return;
+        }
+
+        const mappedAgents = (
+          data as Array<{
+            id?: string;
+            address?: string;
+            vaultAddress?: string;
+            createdAt?: string;
+          }>
+        )
+          .filter(
+            (agent) =>
+              agent.vaultAddress?.toLowerCase() ===
+              selectedVaultAddress.toLowerCase(),
+          )
+          .map((agent, index) => ({
+            name: `Agent ${index + 1}`,
+            address: agent.address ?? "",
+            vaultAddress: agent.vaultAddress ?? "",
+            createdAt: agent.createdAt
+              ? new Date(agent.createdAt).toLocaleDateString()
+              : "",
+          } satisfies Agent));
+
+        setAgents(mappedAgents);
+        setSelectedAgentAddress((current) =>
+          current && mappedAgents.some((agent) => agent.address === current)
+            ? current
+            : null,
+        );
+      } catch (error) {
+        console.warn("Failed to load agents:", error);
+        setAgents([]);
+        setSelectedAgentAddress(null);
+      }
+    };
+
+    void fetchAgents();
+  }, [selectedVaultAddress, walletAddress]);
+
   useEffect(() => {
     if (!walletAddress) {
       setTradeIntents([]);
@@ -445,9 +496,15 @@ export default function Home() {
       try {
         const [tradeRes, positionRes, insuranceRes] =
           await Promise.allSettled([
-            fetch(
-              `/api/trade-intent/user/${walletAddress}?chainId=${selectedChainId}`,
-            ),
+            activeVaultAddress
+              ? fetch(
+                  selectedAgentAddress
+                    ? `/api/trade-intent/agent/${selectedAgentAddress}?chainId=${selectedChainId}`
+                    : `/api/trade-intent/user/${walletAddress}?chainId=${selectedChainId}&vaultAddress=${activeVaultAddress}`,
+                )
+              : Promise.resolve(
+                  new Response(JSON.stringify({ tradeIntents: [] })),
+                ),
             activeVaultAddress
               ? fetch(
                   `/api/positions?vaultAddress=${activeVaultAddress}&chainId=${selectedChainId}`,
@@ -474,6 +531,10 @@ export default function Home() {
               amountIn?: string | number;
               status?: string;
               createdAt?: string | Date;
+              tradeConfirmed?: boolean;
+              risk?: number | null;
+              confirmation?: Record<string, unknown> | null;
+              assessment?: Record<string, unknown> | null;
             }>;
           };
 
@@ -488,14 +549,19 @@ export default function Home() {
             );
 
             const rawStatus = String(item.status ?? "PENDING").toUpperCase();
-            const mappedStatus: TradeIntent["status"] =
-              rawStatus === "APPROVED"
+            // an on-chain confirmation outranks whatever the intent row says
+            const mappedStatus: TradeIntent["status"] = item.tradeConfirmed
+              ? "Executed"
+              : rawStatus === "APPROVED"
                 ? "Approved"
                 : rawStatus === "REJECTED"
                   ? "Review"
                   : "Queued";
 
+            const { assessment, confirmation } = item;
+
             return {
+              id: item.id ?? `${item.agentAddress}-${String(item.createdAt)}`,
               pair: `${tokenInSymbol} / ${tokenOutSymbol}`,
               amount: formatTokenAmount(item.amountIn, tokenInSymbol),
               status: mappedStatus,
@@ -506,6 +572,42 @@ export default function Home() {
                 item.agentAddress && item.agentAddress.length > 10
                   ? `${item.agentAddress.slice(0, 6)}...${item.agentAddress.slice(-4)}`
                   : "Agent",
+              tradeConfirmed: Boolean(item.tradeConfirmed),
+              risk: typeof item.risk === "number" ? item.risk : null,
+              confirmation: confirmation
+                ? {
+                    transactionHash: String(confirmation.transactionHash ?? ""),
+                    amountIn: formatTokenAmount(
+                      confirmation.amountIn,
+                      tokenInSymbol,
+                    ),
+                    amountOut: formatTokenAmount(
+                      confirmation.amountOut,
+                      tokenOutSymbol,
+                    ),
+                    executedAt: confirmation.executedAt
+                      ? new Date(
+                          String(confirmation.executedAt),
+                        ).toLocaleString()
+                      : "unknown",
+                  }
+                : null,
+              assessment: assessment
+                ? {
+                    riskScore: Number(assessment.riskScore ?? 0),
+                    premium: formatTokenAmount(assessment.premium, "USDC"),
+                    coverage: Number(assessment.coverage ?? 0),
+                    coverageDuration: formatDurationSeconds(
+                      assessment.coverageDuration,
+                    ),
+                    assessedAt: assessment.assessedAt
+                      ? new Date(String(assessment.assessedAt)).toLocaleString()
+                      : "unknown",
+                    expiresAt: assessment.expiresAt
+                      ? new Date(String(assessment.expiresAt)).toLocaleString()
+                      : "unknown",
+                  }
+                : null,
             } satisfies TradeIntent;
           });
 
@@ -583,7 +685,14 @@ export default function Home() {
     };
 
     fetchDashboardData();
-  }, [agents, selectedChain, selectedChainId, selectedVault, walletAddress]);
+  }, [
+    agents,
+    selectedAgentAddress,
+    selectedChain,
+    selectedChainId,
+    selectedVault,
+    walletAddress,
+  ]);
 
   const handleChainChange = (nextChain: string) => {
     setSelectedChain(nextChain);
@@ -613,17 +722,11 @@ export default function Home() {
   };
 
   const refreshVaultAssets = async (vaultAddress: string) => {
-    const updatedAssets = await fetchVaultAssets(
-      vaultAddress,
-      selectedChain,
-      selectedChainId,
-    );
+    const holdings = await fetchVaultHoldings(vaultAddress, selectedChainId);
 
     setVaults((currentVaults) =>
       currentVaults.map((vault) =>
-        vault.address === vaultAddress
-          ? { ...vault, assets: updatedAssets }
-          : vault,
+        vault.address === vaultAddress ? { ...vault, ...holdings } : vault,
       ),
     );
   };
@@ -642,7 +745,7 @@ export default function Home() {
     }
 
     if (vaultAction === "withdraw") {
-      const vaultAsset = selectedVault.assets.find(
+      const vaultAsset = [selectedVault.native, ...selectedVault.assets].find(
         (asset) => asset.token === selectedAsset,
       );
       const availableInVault = Number(vaultAsset?.availableBalance ?? "0");
@@ -719,22 +822,10 @@ export default function Home() {
           name: trimmedName,
           chain: selectedChain,
           address: result.vaultAddress,
-          totalValue: "$0",
+          totalValue: "0 ETH",
+          native: emptyAsset("ETH"),
           health: "Healthy",
-          assets: [
-            {
-              token: "USDC",
-              totalDeposited: "0",
-              availableBalance: "0",
-              lockedPercent: 0,
-            },
-            {
-              token: "ETH",
-              totalDeposited: "0",
-              availableBalance: "0",
-              lockedPercent: 0,
-            },
-          ],
+          assets: [],
         };
 
         setVaults((currentVaults) => [nextVault, ...currentVaults]);
@@ -769,7 +860,7 @@ export default function Home() {
   }> = [
     {
       label: "TVL",
-      value: selectedVault?.totalValue ?? "$0",
+      value: selectedVault?.totalValue ?? "0 ETH",
       change: "Selected vault",
       tone: "emerald",
     },
@@ -874,6 +965,13 @@ export default function Home() {
           <div className="mb-6 grid gap-5 xl:grid-cols-2">
             <AgentsPanel
               agents={paginatedAgents}
+              selectedAgentAddress={selectedAgentAddress}
+              onAgentSelect={(address) => {
+                setSelectedAgentAddress((current) =>
+                  current === address ? null : address,
+                );
+                setIntentPage(1);
+              }}
               agentPage={agentPage}
               agentTotalPages={agentTotalPages}
               onPrev={() => setAgentPage((page) => Math.max(1, page - 1))}
@@ -919,12 +1017,12 @@ export default function Home() {
             titleClassName="text-[clamp(1.8rem,2.2vw,2.8rem)] font-medium leading-[0.8] text-[#99e836]"
           >
             <div className="space-y-3">
-              {!selectedVault || selectedVault.assets.length === 0 ? (
+              {!selectedVault ? (
                 <div className="rounded-2xl border border-dashed border-white/10 bg-[#0b120f] p-4 text-center text-sm text-slate-400">
                   Select a vault to see its assets.
                 </div>
               ) : (
-                selectedVault.assets.map((token) => (
+                [selectedVault.native, ...selectedVault.assets].map((token) => (
                   <div
                     key={token.token}
                     className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#0b120f] p-3"

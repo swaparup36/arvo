@@ -113,9 +113,13 @@ export function VaultOverview({
                 </span>
               </div>
 
-              <div className="mt-4 text-2xl font-semibold text-[#edf5ee]">
-                {vault.totalValue}
-              </div>
+              <Tooltip
+                label={`Native ${vault.native.token} held by this vault (available + locked)`}
+              >
+                <div className="mt-4 text-2xl font-semibold text-[#edf5ee]">
+                  {vault.native.totalDeposited} {vault.native.token}
+                </div>
+              </Tooltip>
 
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 {visibleAssets.map((asset, index) => (
@@ -148,6 +152,12 @@ export function VaultOverview({
                     </Tooltip>
                   </div>
                 ))}
+
+                {vault.assets.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-[#99e836]/15 bg-transparent p-2.5 text-center text-[10px] uppercase tracking-[0.08em] text-slate-500 sm:col-span-2">
+                    No ERC-20 tokens held
+                  </div>
+                ) : null}
 
                 {hiddenAssetCount > 0 ? (
                   <div className="rounded-xl border border-dashed border-[#99e836]/15 bg-[#99e836]/5 p-2.5 text-center text-[10px] font-medium uppercase tracking-[0.08em] text-[#c4f57a]">

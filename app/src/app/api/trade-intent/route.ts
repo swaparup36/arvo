@@ -3,8 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { toSerializable } from "@/lib/serialize";
 import { redis } from "@/lib/redis";
 import { CreateTradeIntentRequest, OnChainSubmitTradeIntentStruct } from "../../../types/schema";
-import { Address } from "viem";
+import { Address, keccak256, stringToBytes } from "viem";
 import { submitTradeIntent } from "@/utils/arvoMain";
+
+// fixed TTL
+const INTENT_HASH_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 // POST (create trade intent)
 export async function POST(req: Request) {
@@ -75,12 +78,17 @@ export async function POST(req: Request) {
             minCoverageDuration: tradeIntent.minCoverageDuration.toString(),
         }
         const payload = JSON.stringify(toSerializable(tradeIntentToSend));
+
+        // store it in as a pair of indexed string hash and actual intent ID in Redis for future reference
+        const intentIdHash = keccak256(stringToBytes(tradeIntent.id)).toLowerCase();
+        await redis.set(`trade_intent_hash:${intentIdHash}`, tradeIntent.id, "EX", INTENT_HASH_TTL_SECONDS);
+
         await redis.lpush("trade_execution_queue", payload);
         // risk engine consumes a stream
         await redis.xadd("arvo:trade-intents", "*", "intent", payload);
 
         return NextResponse.json(
-            { tradeIntent: toSerializable(tradeIntent), txHash },
+            { tradeIntentId: tradeIntent.id, txHash, insuranceStatus: tradeIntent.status },
             { status: 201 },
         );
     } catch (error) {

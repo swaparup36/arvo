@@ -17,9 +17,6 @@ const schema = z.object({
   ARVO_MAIN_SEPOLIA_ADDRESS: z
     .string()
     .default("0x0000000000000000000000000000000000000000"),
-  VAULT_FACTORY_ADDRESS: z
-    .string()
-    .default("0x0000000000000000000000000000000000000000"),
   OWNER_PRIVATE_KEY: z.string().default(""),
   ETHEREUM_RPC_URL: z
     .string()

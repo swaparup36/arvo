@@ -6,6 +6,17 @@ import {
   tokenDecimals,
 } from "@/lib/dashboard-data";
 
+// Chains missing from these maps
+export const CHAIN_TO_VAULT_FACTORY_PUBLIC_ADDRESS: Record<number, string | undefined> = {
+  1: process.env.NEXT_PUBLIC_VAULT_FACTORY_ETH_ADDRESS,
+  11155111: process.env.NEXT_PUBLIC_VAULT_FACTORY_SEPOLIA_ADDRESS,
+};
+
+export const CHAIN_TO_ARVO_MAIN_PUBLIC_ADDRESS: Record<number, string | undefined> = {
+  1: process.env.NEXT_PUBLIC_ARVO_MAIN_ADDRESS,
+  11155111: process.env.NEXT_PUBLIC_ARVO_MAIN_SEPOLIA_ADDRESS,
+};
+
 export type WindowWithEthereum = Window & {
   ethereum?: {
     providers?: Array<{
@@ -94,7 +105,7 @@ export async function ensureWalletOnChain(selectedChainName: string) {
   const provider = getWalletProvider();
   const browserProvider = new BrowserProvider(provider);
   const chainId = (await browserProvider.send("eth_chainId", [])) as string;
-  const expectedChainId = chainIdMap[selectedChainName] ?? chainIdMap.Base;
+  const expectedChainId = chainIdMap[selectedChainName];
 
   if (Number(chainId).toString() === expectedChainId) {
     return;
@@ -134,21 +145,15 @@ export async function getUserVaultsForChain(
   const signerAddress =
     userAddress || (await provider.getSigner()).getAddress();
   const chainId = (await provider.send("eth_chainId", [])) as string;
-  const expectedChainId = chainIdMap[selectedChainName] ?? chainIdMap.Base;
+  const expectedChainId = chainIdMap[selectedChainName];
 
   if (Number(chainId).toString() !== expectedChainId) {
     await ensureWalletOnChain(selectedChainName);
   }
 
-  const factoryAddress =
-    process.env.NEXT_PUBLIC_VAULT_FACTORY_ADDRESS ??
-    process.env.VAULT_FACTORY_ADDRESS ??
-    "0x5eE27A4EE0D186309615d799F20c1f45CC4E350D";
+  const factoryAddress = CHAIN_TO_VAULT_FACTORY_PUBLIC_ADDRESS[Number(expectedChainId)];
 
-  if (
-    !factoryAddress ||
-    factoryAddress === "0x0000000000000000000000000000000000000000"
-  ) {
+  if (!factoryAddress) {
     return [];
   }
 
@@ -172,7 +177,7 @@ export async function createVaultOnFactory(
   const signerAddress = await signer.getAddress();
   const chainId = (await provider.send("eth_chainId", [])) as string;
   const normalizedChainId = Number(chainId).toString();
-  const expectedChainId = chainIdMap[selectedChainName] ?? chainIdMap.Base;
+  const expectedChainId = chainIdMap[selectedChainName];
 
   if (normalizedChainId !== expectedChainId) {
     throw new Error(
@@ -180,27 +185,21 @@ export async function createVaultOnFactory(
     );
   }
 
-  const factoryAddress =
-    process.env.NEXT_PUBLIC_VAULT_FACTORY_ADDRESS ??
-    process.env.VAULT_FACTORY_ADDRESS ??
-    "0x5eE27A4EE0D186309615d799F20c1f45CC4E350D";
-  const arvoMainAddress =
-    process.env.NEXT_PUBLIC_ARVO_MAIN_ADDRESS ??
-    process.env.ARVO_MAIN_ADDRESS ??
-    "0xf42fFc447EbA5113809597B1aA66D8998d5260dF";
+  const factoryAddress = CHAIN_TO_VAULT_FACTORY_PUBLIC_ADDRESS[Number(expectedChainId)];
+  const arvoMainAddress = CHAIN_TO_ARVO_MAIN_PUBLIC_ADDRESS[Number(expectedChainId)];
 
   if (!factoryAddress || !arvoMainAddress) {
     throw new Error(
-      "Set NEXT_PUBLIC_VAULT_FACTORY_ADDRESS and NEXT_PUBLIC_ARVO_MAIN_ADDRESS in your environment before creating a vault.",
+      `Arvo is not deployed on ${selectedChainName} (chain ${expectedChainId}) yet.`,
     );
   }
 
-  if (
-    factoryAddress === "0x0000000000000000000000000000000000000000" ||
-    arvoMainAddress === "0x0000000000000000000000000000000000000000"
-  ) {
+  // Same executor on every chain
+  const executorAddress = process.env.NEXT_PUBLIC_EXECUTOR_ADDRESS;
+
+  if (!executorAddress) {
     throw new Error(
-      "The deployed vault factory and protocol addresses are not configured yet. Add the real contract addresses to your .env file.",
+      "Set NEXT_PUBLIC_EXECUTOR_ADDRESS in your environment before creating a vault.",
     );
   }
 
@@ -217,7 +216,7 @@ export async function createVaultOnFactory(
   const tx = await factoryContract.createVault(
     vaultName,
     arvoMainAddress,
-    signerAddress,
+    executorAddress,
   );
 
   await tx.wait();
@@ -253,7 +252,7 @@ export async function executeVaultAction(
   const signerAddress = await signer.getAddress();
   const chainId = (await provider.send("eth_chainId", [])) as string;
   const normalizedChainId = Number(chainId).toString();
-  const expectedChainId = chainIdMap[selectedChainName] ?? chainIdMap.Base;
+  const expectedChainId = chainIdMap[selectedChainName];
 
   if (normalizedChainId !== expectedChainId) {
     throw new Error(

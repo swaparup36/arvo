@@ -103,11 +103,16 @@ export async function submitTradeConfirmation(confirmation: OnChainSubmitTradeCo
   }
 }
 
+
+function orNull<T extends { id: string }>(result: T): T | null {
+  return result?.id ? result : null;
+}
+
 export async function getTradeIntent(intentId: string, chainId: number) {
   try {
     const intent = await getArvoMain(chainId).getTradeIntent(intentId);
 
-    return intent;
+    return orNull(intent);
   } catch (error) {
     console.error("Error fetching trade intent:", error);
     return null;
@@ -118,7 +123,7 @@ export async function getRiskAssessment(intentId: string, chainId: number) {
   try {
     const assessment = await getArvoMain(chainId).getRiskAssessment(intentId);
 
-    return assessment;
+    return orNull(assessment);
   } catch (error) {
     console.error("Error fetching risk assessment:", error);
     return null;
@@ -129,7 +134,7 @@ export async function getTradeConfirmation(intentId: string, chainId: number) {
   try {
     const confirmation = await getArvoMain(chainId).getTradeConfirmation(intentId);
 
-    return confirmation;
+    return orNull(confirmation);
   } catch (error) {
     console.error("Error fetching trade confirmation:", error);
     return null;
@@ -140,7 +145,7 @@ export async function getInsuranceByTradeIntentId(intentId: string, chainId: num
   try {
     const insurance = await getArvoMain(chainId).getInsuranceByTradeIntentId(intentId);
 
-    return insurance;
+    return orNull(insurance);
   } catch (error) {
     console.error("Error fetching insurance by trade intent ID:", error);
     return null;
@@ -151,7 +156,7 @@ export async function getInsurance(insuranceId: string, chainId: number) {
   try {
     const insurance = await getArvoMain(chainId).getInsurance(insuranceId);
 
-    return insurance;
+    return orNull(insurance);
   } catch (error) {
     console.error("Error fetching insurance:", error);
     return null;
@@ -162,7 +167,7 @@ export async function getPositionByTradeIntentId(intentId: string, chainId: numb
   try {
     const position = await getArvoMain(chainId).getPositionByTradeIntentId(intentId);
 
-    return position;
+    return orNull(position);
   } catch (error) {
     console.error("Error fetching position by trade intent ID:", error);
     return null;
@@ -173,7 +178,7 @@ export async function getPosition(insuranceId: string, chainId: number) {
   try {
     const position = await getArvoMain(chainId).getPosition(insuranceId);
 
-    return position;
+    return orNull(position);
   } catch (error) {
     console.error("Error fetching position:", error);
     return null;

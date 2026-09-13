@@ -13,7 +13,7 @@ export async function GET(request: Request) {
 
         const user = await prisma.user.findUnique({
             where: {
-                address: userAddress,
+                address: userAddress.toLowerCase(),
             },
         });
 
@@ -27,6 +27,13 @@ export async function GET(request: Request) {
         const agents = await prisma.agent.findMany({
             where: {
                 userId: userId,
+            },
+            // never ship privateKey to the client
+            select: {
+                id: true,
+                address: true,
+                vaultAddress: true,
+                createdAt: true,
             },
         });
 

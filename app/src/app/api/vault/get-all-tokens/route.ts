@@ -16,9 +16,9 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: "Missing chainId parameter" }, { status: 400 });
         }
 
-        const tokenAddresses = await getAllTokensHeldByTheVault(vaultAddress, Number(chainId));
+        const { native, tokens } = await getAllTokensHeldByTheVault(vaultAddress, Number(chainId));
 
-        return NextResponse.json({ tokenAddresses }, { status: 200 });
+        return NextResponse.json({ native, tokens }, { status: 200 });
     } catch (error) {
         console.log("Error fetching token addresses:", error);
         return NextResponse.json({ error: "Failed to fetch token addresses" }, { status: 500 });

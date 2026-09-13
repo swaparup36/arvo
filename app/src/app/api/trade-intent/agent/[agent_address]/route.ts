@@ -1,24 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { toSerializable } from "@/lib/serialize";
 import { getTradeIntent } from "@/utils/arvoMain";
-
-function toSerializable(value: unknown): unknown {
-  if (typeof value === "bigint") {
-    return value.toString();
-  }
-
-  if (Array.isArray(value)) {
-    return value.map(toSerializable);
-  }
-
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, entry]) => [key, toSerializable(entry)]),
-    );
-  }
-
-  return value;
-}
 
 // GET (fetch trade intents by agent address)
 export async function GET(
@@ -39,9 +22,10 @@ export async function GET(
 
     const tradeIntents = await prisma.tradeIntent.findMany({
       where: {
-        agentAddress,
+        agentAddress: { equals: agentAddress, mode: "insensitive" },
         ...(chainId ? { chainId: Number(chainId) } : {}),
       },
+      include: { tradeConfirmation: true, riskAssessments: true },
     });
 
     // for every trade intent check if is exists onchain or not and only return the ones that are onchain
@@ -53,8 +37,20 @@ export async function GET(
       }
     }
 
+
+    // the relations are pulled in with the intents above, so this is just a shape change
+    const enrichedTradeIntents = onChainTradeIntents.map(
+      ({ tradeConfirmation, riskAssessments, ...intent }) => ({
+        ...intent,
+        tradeConfirmed: Boolean(tradeConfirmation),
+        risk: riskAssessments ? Number(riskAssessments.riskScore) : null,
+        confirmation: tradeConfirmation,
+        assessment: riskAssessments,
+      }),
+    );
+
     return NextResponse.json(
-      { tradeIntents: toSerializable(onChainTradeIntents) },
+      { tradeIntents: toSerializable(enrichedTradeIntents) },
       { status: 200 },
     );
   } catch (error) {

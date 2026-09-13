@@ -3,7 +3,8 @@
 import { BrowserProvider, Contract } from "ethers";
 import { useEffect, useState } from "react";
 
-import { getWalletProvider } from "@/lib/wallet";
+import { chainIdMap } from "@/lib/dashboard-data";
+import { CHAIN_TO_VAULT_FACTORY_PUBLIC_ADDRESS, getWalletProvider } from "@/lib/wallet";
 import type { Vault } from "@/types/dashboard";
 
 const FACTORY_ABI = [
@@ -36,17 +37,8 @@ export function useUserVaults(selectedChain: string, walletAddress?: string) {
       try {
         const provider = new BrowserProvider(getWalletProvider());
         const chainId = (await provider.send("eth_chainId", [])) as string;
-        const expectedChainId = (() => {
-          const map: Record<string, string> = {
-            Ethereum: "1",
-            Sepolia: "11155111",
-            Base: "8453",
-            Arbitrum: "42161",
-            Optimism: "10",
-          };
-
-          return map[selectedChain] ?? map.Base;
-        })();
+        const expectedChainId =
+          chainIdMap[selectedChain];
 
         if (Number(chainId).toString() !== expectedChainId) {
           if (isMounted) {
@@ -55,15 +47,9 @@ export function useUserVaults(selectedChain: string, walletAddress?: string) {
           return;
         }
 
-        const factoryAddress =
-          process.env.NEXT_PUBLIC_VAULT_FACTORY_ADDRESS ??
-          process.env.VAULT_FACTORY_ADDRESS ??
-          "0x5eE27A4EE0D186309615d799F20c1f45CC4E350D";
+        const factoryAddress = CHAIN_TO_VAULT_FACTORY_PUBLIC_ADDRESS[Number(expectedChainId)];
 
-        if (
-          !factoryAddress ||
-          factoryAddress === "0x0000000000000000000000000000000000000000"
-        ) {
+        if (!factoryAddress) {
           if (isMounted) {
             setVaults([]);
           }
@@ -94,22 +80,15 @@ export function useUserVaults(selectedChain: string, walletAddress?: string) {
               name: vaultName || `${selectedChain} Strategy Vault`,
               chain: selectedChain,
               address: vaultAddress,
-              totalValue: "$0",
+              totalValue: "0 ETH",
+              native: {
+                token: "ETH",
+                totalDeposited: "0",
+                availableBalance: "0",
+                lockedPercent: 0,
+              },
               health: "Healthy" as const,
-              assets: [
-                {
-                  token: "USDC",
-                  totalDeposited: "0",
-                  availableBalance: "0",
-                  lockedPercent: 0,
-                },
-                {
-                  token: "ETH",
-                  totalDeposited: "0",
-                  availableBalance: "0",
-                  lockedPercent: 0,
-                },
-              ],
+              assets: [],
             } satisfies Vault;
           }),
         );

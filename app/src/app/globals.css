@@ -74,3 +74,11 @@ button {
 [data-rk="modal"] * {
   font-family: "Helvetica Neue", "Arial", sans-serif !important;
 }
+
+.no-scrollbar {
+  scrollbar-width: none; /* Firefox */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

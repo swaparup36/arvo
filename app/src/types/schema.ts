@@ -39,20 +39,20 @@ export type OnChainSubmitTradeIntentStruct = {
 }
 
 export type CreateRiskReportRequest = {
-    id: string; // uuid minted and signed by the risk engine
+  id: string; // uuid minted and signed by the risk engine
 
-    intentId: string;
+  intentId: string;
 
-    riskScore: number; // integer 0-100
-    premium: string; // premium token base units
-    coverage: number; // integer 0-100
-    coverageDuration: string; // seconds
+  riskScore: number; // integer 0-100
+  premium: string; // premium token base units
+  coverage: number; // integer 0-100
+  coverageDuration: string; // seconds
 
-    signature: string;
-    assessedAt: number; // unix seconds
-    expiresAt: number; // unix seconds
+  signature: string;
+  assessedAt: number; // unix seconds
+  expiresAt: number; // unix seconds
 
-    assessmentHash: string;
+  assessmentHash: string;
 }
 
 export type OnChainSubmitRiskAssessmentStruct = {

@@ -13,8 +13,11 @@ export async function POST(req: Request) {
         
         // Validate the request data
         if (!id || !intentId || riskScore === undefined || premium === undefined || coverage === undefined || !coverageDuration || !signature || !assessedAt || !expiresAt || !assessmentHash) {
+            // console.log("Missing required fields in risk report request:", createRiskReportRequest);
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
+
+        // console.log("Creating risk report with data:", createRiskReportRequest);
 
         // get the trade intent from the database
         const tradeIntent = await prisma.tradeIntent.findUnique({

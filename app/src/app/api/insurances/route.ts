@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { toSerializable } from "@/lib/serialize";
-import { getInsuranceByTradeIntentId } from "@/utils/arvoMain";
+import {
+  getInsuranceByTradeIntentId,
+  getPositionByTradeIntentId,
+  isLiveInsurance,
+} from "@/utils/arvoMain";
 
 // GET (fetch all insurances for a vault or an agent's address, by chain ID)
 export async function GET(req: Request) {
@@ -44,7 +48,17 @@ export async function GET(req: Request) {
           intent.id,
           parseInt(chainId, 10),
         );
-        if (insurance) insurances.push(toSerializable(insurance));
+        if (!insurance || !isLiveInsurance(insurance)) continue;
+
+        const position = await getPositionByTradeIntentId(
+          intent.id,
+          parseInt(chainId, 10),
+        );
+
+        insurances.push({
+          ...(toSerializable(insurance) as Record<string, unknown>),
+          positionId: position?.id ?? null,
+        });
       } catch (onchainError) {
         console.warn("On-chain insurance lookup failed:", onchainError);
       }

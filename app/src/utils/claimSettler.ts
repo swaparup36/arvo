@@ -36,7 +36,26 @@ export async function claimSettler(token: string, chainId: number, amountNeed: b
         // usdc address for the given chain id
         const usdcAddress = CHAIN_TO_USDC_ADDRESS[chainId];
 
-        // get quote for swap from 1inch - this is to determine how much USDC we should spend to get the amount of token needed
+        // if the token is USDC, then we can just transfer the amount needed from the owner wallet to the arvo main contract
+        if (token.toLowerCase() === usdcAddress.toLowerCase()) {
+            const topUp = await transferToken(token, CHAIN_TO_ARVO_MAIN_ADDRESS[chainId], amountToBuy, chainId);
+
+            if (!topUp.txHash || !topUp.receipt || topUp.receipt.status !== 1) {
+                return {
+                    success: false,
+                    message: "Failed to settle claim",
+                    error: `Arvo main is short ${amountToBuy} USDC and the owner wallet could not cover it`,
+                };
+            }
+
+            return {
+                success: true,
+                message: "Claim settled successfully",
+                txHash: topUp.txHash,
+            };
+        }
+
+        // get a swap quote from 1inch for the amount of token needed to buy the amount of token needed to settle the claim
         const swapQuote = await getQuote({
             chainId: chainId,
             tokenIn: token,

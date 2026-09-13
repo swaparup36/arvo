@@ -36,15 +36,22 @@ export type TradeIntent = {
 
 export type Position = {
   id: string;
+  insuranceId: string | null;
   pair: string;
   amountIn: string;
   amountOut: string;
   status: "Active" | "Closed";
   openedAt: string;
+  // value of tokenOut sold back into tokenIn, against what was paid for it;
+  // null when the pair has no routable liquidity to price it with
+  pnl: string | null;
+  pnlPercent: number | null;
 };
 
 export type InsuranceItem = {
   id: string;
+  tradeIntentId: string;
+  positionId: string | null;
   premium: string;
   coverage: string;
   duration: string;

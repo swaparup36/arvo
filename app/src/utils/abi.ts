@@ -17,17 +17,25 @@ export const ARVO_MAIN_ABI = [
           { internalType: "uint256", name: "deadline", type: "uint256" },
           { internalType: "uint256", name: "maxPremium", type: "uint256" },
           { internalType: "uint32", name: "minCoverage", type: "uint32" },
-          { internalType: "uint256", name: "minCoverageDuration", type: "uint256" },
+          {
+            internalType: "uint256",
+            name: "minCoverageDuration",
+            type: "uint256",
+          },
           { internalType: "bytes", name: "signature", type: "bytes" },
-          { internalType: "enum TradeIntentStatus", name: "status", type: "uint8" },
-          { internalType: "uint256", name: "createdAt", type: "uint256" }
-        ]
-      }
+          {
+            internalType: "enum TradeIntentStatus",
+            name: "status",
+            type: "uint8",
+          },
+          { internalType: "uint256", name: "createdAt", type: "uint256" },
+        ],
+      },
     ],
     name: "submitTradeIntent",
     outputs: [],
     stateMutability: "nonpayable",
-    type: "function"
+    type: "function",
   },
   {
     inputs: [
@@ -39,60 +47,60 @@ export const ARVO_MAIN_ABI = [
           {
             internalType: "string",
             name: "id",
-            type: "string"
+            type: "string",
           },
           {
             internalType: "string",
             name: "intentId",
-            type: "string"
+            type: "string",
           },
           {
             internalType: "uint256",
             name: "riskScore",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "uint256",
             name: "premium",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "uint256",
             name: "coverage",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "uint256",
             name: "coverageDuration",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "bytes",
             name: "signature",
-            type: "bytes"
+            type: "bytes",
           },
           {
             internalType: "uint256",
             name: "assessedAt",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "uint256",
             name: "expiresAt",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "string",
             name: "assessmentHash",
-            type: "string"
-          }
-        ]
-      }
+            type: "string",
+          },
+        ],
+      },
     ],
     name: "submitRiskAssessment",
     outputs: [],
     stateMutability: "nonpayable",
-    type: "function"
+    type: "function",
   },
   {
     inputs: [
@@ -104,68 +112,68 @@ export const ARVO_MAIN_ABI = [
           {
             internalType: "string",
             name: "id",
-            type: "string"
+            type: "string",
           },
           {
             internalType: "string",
             name: "intentId",
-            type: "string"
+            type: "string",
           },
           {
             internalType: "string",
             name: "transactionHash",
-            type: "string"
+            type: "string",
           },
           {
             internalType: "address",
             name: "tokenIn",
-            type: "address"
+            type: "address",
           },
           {
             internalType: "address",
             name: "tokenOut",
-            type: "address"
+            type: "address",
           },
           {
             internalType: "uint256",
             name: "amountIn",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "uint256",
             name: "amountOut",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "bytes",
             name: "signature",
-            type: "bytes"
+            type: "bytes",
           },
           {
             internalType: "uint256",
             name: "executedAt",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "uint256",
             name: "createdAt",
-            type: "uint256"
-          }
-        ]
-      }
+            type: "uint256",
+          },
+        ],
+      },
     ],
     name: "submitTradeConfirmation",
     outputs: [],
     stateMutability: "nonpayable",
-    type: "function"
+    type: "function",
   },
   {
     inputs: [
       {
         internalType: "string",
         name: "intentId",
-        type: "string"
-      }
+        type: "string",
+      },
     ],
     name: "getTradeIntent",
     outputs: [
@@ -177,91 +185,91 @@ export const ARVO_MAIN_ABI = [
           {
             internalType: "string",
             name: "id",
-            type: "string"
+            type: "string",
           },
           {
             internalType: "address",
             name: "userAddress",
-            type: "address"
+            type: "address",
           },
           {
             internalType: "address",
             name: "agentAddress",
-            type: "address"
+            type: "address",
           },
           {
             internalType: "address",
             name: "vaultAddress",
-            type: "address"
+            type: "address",
           },
           {
             internalType: "address",
             name: "tokenIn",
-            type: "address"
+            type: "address",
           },
           {
             internalType: "address",
             name: "tokenOut",
-            type: "address"
+            type: "address",
           },
           {
             internalType: "uint256",
             name: "amountIn",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "uint256",
             name: "minAmountOut",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "uint256",
             name: "deadline",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "uint256",
             name: "maxPremium",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "uint32",
             name: "minCoverage",
-            type: "uint32"
+            type: "uint32",
           },
           {
             internalType: "uint256",
             name: "minCoverageDuration",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "bytes",
             name: "signature",
-            type: "bytes"
+            type: "bytes",
           },
           {
             internalType: "enum TradeIntentStatus",
             name: "status",
-            type: "uint8"
+            type: "uint8",
           },
           {
             internalType: "uint256",
             name: "createdAt",
-            type: "uint256"
-          }
-        ]
-      }
+            type: "uint256",
+          },
+        ],
+      },
     ],
     stateMutability: "view",
-    type: "function"
+    type: "function",
   },
   {
     inputs: [
       {
         internalType: "string",
         name: "intentId",
-        type: "string"
-      }
+        type: "string",
+      },
     ],
     name: "getRiskAssessment",
     outputs: [
@@ -273,66 +281,66 @@ export const ARVO_MAIN_ABI = [
           {
             internalType: "string",
             name: "id",
-            type: "string"
+            type: "string",
           },
           {
             internalType: "string",
             name: "intentId",
-            type: "string"
+            type: "string",
           },
           {
             internalType: "uint256",
             name: "riskScore",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "uint256",
             name: "premium",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "uint256",
             name: "coverage",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "uint256",
             name: "coverageDuration",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "bytes",
             name: "signature",
-            type: "bytes"
+            type: "bytes",
           },
           {
             internalType: "uint256",
             name: "assessedAt",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "uint256",
             name: "expiresAt",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "string",
             name: "assessmentHash",
-            type: "string"
-          }
-        ]
-      }
+            type: "string",
+          },
+        ],
+      },
     ],
     stateMutability: "view",
-    type: "function"
+    type: "function",
   },
   {
     inputs: [
       {
         internalType: "string",
         name: "intentId",
-        type: "string"
-      }
+        type: "string",
+      },
     ],
     name: "getTradeConfirmation",
     outputs: [
@@ -344,66 +352,66 @@ export const ARVO_MAIN_ABI = [
           {
             internalType: "string",
             name: "id",
-            type: "string"
+            type: "string",
           },
           {
             internalType: "string",
             name: "intentId",
-            type: "string"
+            type: "string",
           },
           {
             internalType: "string",
             name: "transactionHash",
-            type: "string"
+            type: "string",
           },
           {
             internalType: "address",
             name: "tokenIn",
-            type: "address"
+            type: "address",
           },
           {
             internalType: "address",
             name: "tokenOut",
-            type: "address"
+            type: "address",
           },
           {
             internalType: "uint256",
             name: "amountIn",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "uint256",
             name: "amountOut",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "bytes",
             name: "signature",
-            type: "bytes"
+            type: "bytes",
           },
           {
             internalType: "uint256",
             name: "executedAt",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "uint256",
             name: "createdAt",
-            type: "uint256"
-          }
-        ]
-      }
+            type: "uint256",
+          },
+        ],
+      },
     ],
     stateMutability: "view",
-    type: "function"
+    type: "function",
   },
   {
     inputs: [
       {
         internalType: "string",
         name: "intentId",
-        type: "string"
-      }
+        type: "string",
+      },
     ],
     name: "getInsuranceByTradeIntentId",
     outputs: [
@@ -415,61 +423,61 @@ export const ARVO_MAIN_ABI = [
           {
             internalType: "string",
             name: "id",
-            type: "string"
+            type: "string",
           },
           {
             internalType: "string",
             name: "tradeIntentId",
-            type: "string"
+            type: "string",
           },
           {
             internalType: "string",
             name: "riskAssessmentId",
-            type: "string"
+            type: "string",
           },
           {
             internalType: "string",
             name: "tradeConfirmationId",
-            type: "string"
+            type: "string",
           },
           {
             internalType: "uint256",
             name: "premium",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "uint256",
             name: "coverage",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "uint256",
             name: "coverageDuration",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "bool",
             name: "valid",
-            type: "bool"
+            type: "bool",
           },
           {
             internalType: "uint256",
             name: "createdAt",
-            type: "uint256"
-          }
-        ]
-      }
+            type: "uint256",
+          },
+        ],
+      },
     ],
     stateMutability: "view",
-    type: "function"
+    type: "function",
   },
   {
     inputs: [
       {
         internalType: "string",
         name: "insuranceId",
-        type: "string"
-      }
+        type: "string",
+      },
     ],
     name: "getInsurance",
     outputs: [
@@ -481,61 +489,61 @@ export const ARVO_MAIN_ABI = [
           {
             internalType: "string",
             name: "id",
-            type: "string"
+            type: "string",
           },
           {
             internalType: "string",
             name: "tradeIntentId",
-            type: "string"
+            type: "string",
           },
           {
             internalType: "string",
             name: "riskAssessmentId",
-            type: "string"
+            type: "string",
           },
           {
             internalType: "string",
             name: "tradeConfirmationId",
-            type: "string"
+            type: "string",
           },
           {
             internalType: "uint256",
             name: "premium",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "uint256",
             name: "coverage",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "uint256",
             name: "coverageDuration",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "bool",
             name: "valid",
-            type: "bool"
+            type: "bool",
           },
           {
             internalType: "uint256",
             name: "createdAt",
-            type: "uint256"
-          }
-        ]
-      }
+            type: "uint256",
+          },
+        ],
+      },
     ],
     stateMutability: "view",
-    type: "function"
+    type: "function",
   },
   {
     inputs: [
       {
         internalType: "string",
         name: "intentId",
-        type: "string"
-      }
+        type: "string",
+      },
     ],
     name: "getPositionByTradeIntentId",
     outputs: [
@@ -547,61 +555,61 @@ export const ARVO_MAIN_ABI = [
           {
             internalType: "string",
             name: "id",
-            type: "string"
+            type: "string",
           },
           {
             internalType: "string",
             name: "insuranceId",
-            type: "string"
+            type: "string",
           },
           {
             internalType: "address",
             name: "vaultAddress",
-            type: "address"
+            type: "address",
           },
           {
             internalType: "address",
             name: "tokenOutAddress",
-            type: "address"
+            type: "address",
           },
           {
             internalType: "address",
             name: "tokenInAddress",
-            type: "address"
+            type: "address",
           },
           {
             internalType: "uint256",
             name: "amountOut",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "uint256",
             name: "amountIn",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "bool",
             name: "isActive",
-            type: "bool"
+            type: "bool",
           },
           {
             internalType: "uint256",
             name: "createdAt",
-            type: "uint256"
-          }
-        ]
-      }
+            type: "uint256",
+          },
+        ],
+      },
     ],
     stateMutability: "view",
-    type: "function"
+    type: "function",
   },
   {
     inputs: [
       {
         internalType: "string",
         name: "insuranceId",
-        type: "string"
-      }
+        type: "string",
+      },
     ],
     name: "getPosition",
     outputs: [
@@ -613,66 +621,66 @@ export const ARVO_MAIN_ABI = [
           {
             internalType: "string",
             name: "id",
-            type: "string"
+            type: "string",
           },
           {
             internalType: "string",
             name: "insuranceId",
-            type: "string"
+            type: "string",
           },
           {
             internalType: "address",
             name: "vaultAddress",
-            type: "address"
+            type: "address",
           },
           {
             internalType: "address",
             name: "tokenOutAddress",
-            type: "address"
+            type: "address",
           },
           {
             internalType: "address",
             name: "tokenInAddress",
-            type: "address"
+            type: "address",
           },
           {
             internalType: "uint256",
             name: "amountOut",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "uint256",
             name: "amountIn",
-            type: "uint256"
+            type: "uint256",
           },
           {
             internalType: "bool",
             name: "isActive",
-            type: "bool"
+            type: "bool",
           },
           {
             internalType: "uint256",
             name: "createdAt",
-            type: "uint256"
-          }
-        ]
-      }
+            type: "uint256",
+          },
+        ],
+      },
     ],
     stateMutability: "view",
-    type: "function"
+    type: "function",
   },
   {
     inputs: [
       {
         internalType: "string",
         name: "insuranceId",
-        type: "string"
-      }
+        type: "string",
+      },
     ],
     name: "invalidateInsurance",
     outputs: [],
     stateMutability: "nonpayable",
-    type: "function"
+    type: "function",
   },
   {
     type: "function",
@@ -681,17 +689,20 @@ export const ARVO_MAIN_ABI = [
       {
         name: "insuranceId",
         type: "string",
-        internalType: "string"
-      }
+        internalType: "string",
+      },
     ],
     outputs: [],
-    stateMutability: "nonpayable"
-  }
+    stateMutability: "nonpayable",
+  },
 ];
 
 export const ERC20_ABI = [
   "function decimals() view returns (uint8)",
-  "function balanceOf(address) view returns (uint256)"
+  "function balanceOf(address) view returns (uint256)",
+  "function allowance(address owner, address spender) view returns (uint256)",
+  "function approve(address spender, uint256 amount) returns (bool)",
+  "function transfer(address to, uint256 amount) returns (bool)",
 ];
 
 export const VAULT_CONTRACT_ABI = [
@@ -702,17 +713,17 @@ export const VAULT_CONTRACT_ABI = [
       {
         name: "asset",
         type: "address",
-        internalType: "address"
-      }
+        internalType: "address",
+      },
     ],
     outputs: [
       {
         name: "",
         type: "uint256",
-        internalType: "uint256"
-      }
+        internalType: "uint256",
+      },
     ],
-    stateMutability: "view"
+    stateMutability: "view",
   },
   {
     type: "function",
@@ -721,17 +732,17 @@ export const VAULT_CONTRACT_ABI = [
       {
         name: "",
         type: "address",
-        internalType: "address"
-      }
+        internalType: "address",
+      },
     ],
     outputs: [
       {
         name: "",
         type: "uint256",
-        internalType: "uint256"
-      }
+        internalType: "uint256",
+      },
     ],
-    stateMutability: "view"
+    stateMutability: "view",
   },
   {
     type: "function",
@@ -741,9 +752,9 @@ export const VAULT_CONTRACT_ABI = [
       {
         name: "",
         type: "string",
-        internalType: "string"
-      }
+        internalType: "string",
+      },
     ],
-    stateMutability: "view"
-  }
-]
+    stateMutability: "view",
+  },
+];

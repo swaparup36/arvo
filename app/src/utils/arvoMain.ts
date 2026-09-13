@@ -152,6 +152,18 @@ export async function getInsuranceByTradeIntentId(intentId: string, chainId: num
   }
 }
 
+export function isLiveInsurance(insurance: {
+  valid: boolean;
+  createdAt: unknown;
+  coverageDuration: unknown;
+}): boolean {
+  const expiresAt =
+    (Number(insurance.createdAt ?? 0) + Number(insurance.coverageDuration ?? 0)) *
+    1000;
+
+  return insurance.valid && expiresAt > Date.now();
+}
+
 export async function getInsurance(insuranceId: string, chainId: number) {
   try {
     const insurance = await getArvoMain(chainId).getInsurance(insuranceId);
@@ -185,6 +197,21 @@ export async function getPosition(insuranceId: string, chainId: number) {
   }
 }
 
+function revertReason(error: unknown): string {
+  const details = error as {
+    reason?: string;
+    shortMessage?: string;
+    message?: string;
+  };
+
+  return (
+    details?.reason ??
+    details?.shortMessage ??
+    details?.message ??
+    "Transaction failed"
+  );
+}
+
 export async function invalidateInsurance(insuranceId: string, chainId: number) {
   try {
     const tx = await getArvoMain(chainId).invalidateInsurance(insuranceId);
@@ -193,13 +220,15 @@ export async function invalidateInsurance(insuranceId: string, chainId: number) 
 
     return {
       txHash: receipt.hash,
-      receipt
+      receipt,
+      error: null as string | null
     };
   } catch (error) {
     console.error("Error invalidating insurance:", error);
     return {
       txHash: null,
-      receipt: null
+      receipt: null,
+      error: revertReason(error)
     };
   }
 }
@@ -212,13 +241,15 @@ export async function claimInsurance(insuranceId: string, chainId: number) {
 
     return {
       txHash: receipt.hash,
-      receipt
+      receipt,
+      error: null as string | null
     };
   } catch (error) {
     console.error("Error claiming insurance:", error);
     return {
       txHash: null,
-      receipt: null
+      receipt: null,
+      error: revertReason(error)
     };
   }
 }

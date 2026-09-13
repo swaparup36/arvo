@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { toSerializable } from "@/lib/serialize";
-import { getPositionByTradeIntentId } from "@/utils/arvoMain";
+import {
+  getInsuranceByTradeIntentId,
+  getPositionByTradeIntentId,
+  isLiveInsurance,
+} from "@/utils/arvoMain";
+import { cached } from "@/lib/cache";
+import { getQuote } from "@/utils/uniswap";
+
+const QUOTE_TTL_SECONDS = 30;
 
 // GET (fetch all positions by vault address and chain ID)
 export async function GET(req: Request) {
@@ -35,18 +43,47 @@ export async function GET(req: Request) {
       return NextResponse.json({ positions: [] }, { status: 200 });
     }
 
-    const positions = [];
+    const rawPositions = [];
     for (const intent of tradeIntents) {
       try {
-        const position = await getPositionByTradeIntentId(
-          intent.id,
-          parseInt(chainId, 10),
-        );
-        if (position) positions.push(toSerializable(position));
+        const [position, insurance] = await Promise.all([
+          getPositionByTradeIntentId(intent.id, parseInt(chainId, 10)),
+          getInsuranceByTradeIntentId(intent.id, parseInt(chainId, 10)),
+        ]);
+
+        if (!position || (insurance && !isLiveInsurance(insurance))) continue;
+
+        rawPositions.push(toSerializable(position));
       } catch (onchainError) {
         console.warn("On-chain position lookup failed:", onchainError);
       }
     }
+
+    // fetch the current value of each position using the Uniswap API and cache the results
+    const positions = await Promise.all(
+      rawPositions.map(async (position) => {
+        const entry = position as Record<string, string>;
+
+        // fetch the current value of the position using the Uniswap API and cache the result for 30 seconds
+        const currentValue = await cached(
+          `quote:${chainId}:${entry.tokenOutAddress}:${entry.tokenInAddress}:${entry.amountOut}`,
+          async () => {
+            const quote = await getQuote({
+              chainId: parseInt(chainId, 10),
+              tokenIn: entry.tokenOutAddress,
+              tokenOut: entry.tokenInAddress,
+              amountIn: entry.amountOut,
+              vaultAddress: entry.vaultAddress,
+            });
+
+            return quote ? String(quote.quote.output.amount) : null;
+          },
+          { ttl: QUOTE_TTL_SECONDS },
+        );
+
+        return { ...entry, currentValue };
+      }),
+    );
 
     return NextResponse.json({ positions }, { status: 200 });
   } catch (error) {

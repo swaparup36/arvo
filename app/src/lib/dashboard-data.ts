@@ -32,6 +32,9 @@ export const tokenAddressesByChain: Record<string, Record<string, string>> = {
   Sepolia: {
     ETH: "0x0000000000000000000000000000000000000000",
     USDC: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+    // display only: kept out of tokenDecimals so it stays off the
+    // deposit/withdraw asset list, which is keyed by that map.
+    WETH: "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14",
     WBTC: "0x0000000000000000000000000000000000000000",
     ARB: "0x0000000000000000000000000000000000000000",
   },
@@ -55,3 +58,16 @@ export const tokenAddressesByChain: Record<string, Record<string, string>> = {
   },
 };
 
+
+// Formats a numeric string for display, using significant digits for dust and
+export function formatAmountForDisplay(value: string): string {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return value;
+  // use 4 decimal places for whole numbers, 6 significant digits for dust
+  return parsed.toLocaleString(
+    "en-US",
+    Math.abs(parsed) >= 1
+      ? { maximumFractionDigits: 4 }
+      : { maximumSignificantDigits: 6 },
+  );
+}

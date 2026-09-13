@@ -82,6 +82,7 @@ export async function POST(req: Request) {
         // store it in as a pair of indexed string hash and actual intent ID in Redis for future reference
         const intentIdHash = keccak256(stringToBytes(tradeIntent.id)).toLowerCase();
         await redis.set(`trade_intent_hash:${intentIdHash}`, tradeIntent.id, "EX", INTENT_HASH_TTL_SECONDS);
+        console.log(`Stored trade intent hash ${intentIdHash} for intent ID ${tradeIntent.id} with TTL of ${INTENT_HASH_TTL_SECONDS} seconds`);
 
         await redis.lpush("trade_execution_queue", payload);
         // risk engine consumes a stream

@@ -1,16 +1,23 @@
-// Prisma returns BigInt for on-chain amounts and JSON.stringify throws on those,
-// so anything leaving the server as JSON has to go through here first.
+// Serializes a value to JSON, converting BigInts to strings and recursing into arrays and objects. This is useful for sending data to the client that may contain BigInts, which are not supported by JSON.stringify.
 export function toSerializable(value: unknown): unknown {
   if (typeof value === "bigint") {
     return value.toString();
   }
 
   if (Array.isArray(value)) {
+    const { toObject } = value as unknown as { toObject?: () => unknown };
+    if (typeof toObject === "function") {
+      try {
+        return toSerializable(toObject.call(value));
+      } catch {
+        
+      }
+    }
+
     return value.map(toSerializable);
   }
 
   if (value && typeof value === "object") {
-    // Date and Prisma Decimal define toJSON; recursing into them yields {} instead.
     const { toJSON } = value as { toJSON?: () => unknown };
     if (typeof toJSON === "function") {
       return toJSON.call(value);

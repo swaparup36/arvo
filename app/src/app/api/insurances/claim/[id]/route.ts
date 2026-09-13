@@ -2,11 +2,12 @@ import { getQuote } from "@/utils/uniswap";
 import { claimInsurance, getInsurance, getPosition } from "@/utils/arvoMain";
 import { claimSettler } from "@/utils/claimSettler";
 import { NextResponse } from "next/server";
+import { requireIntentOwner } from "@/lib/insurance-auth";
 import { GetQuoteParams } from "@/types/schema";
 import { toSerializable } from "@/lib/serialize";
 
-// GET (claim the insurance)
-export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+// POST (claim the insurance)
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id: insuranceId } = await params;
         const { searchParams } = new URL(req.url);
@@ -22,6 +23,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         if (!insurance) {
             return NextResponse.json({ error: "Insurance not found" }, { status: 404 });
         }
+
+        const denied = await requireIntentOwner(
+            req,
+            String(insurance.tradeIntentId),
+            parseInt(chainId),
+        );
+
+        if (denied) return denied;
 
         // get the position details from the insurance object
         const postion = await getPosition(insuranceId, parseInt(chainId));
@@ -42,7 +51,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             tokenIn: tokenOutAddress,
             tokenOut: tokenInAddress,
             amountIn: amountOut.toString(),
-            vaultAddress: insurance.vaultAddress,
+            vaultAddress: postion.vaultAddress,
         }
 
         const swapQuote = await getQuote(swapQuoteRequest);
@@ -52,9 +61,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         }
 
         const currentValue = BigInt(swapQuote.quote.output.amount);
+        const profitOrLoss = currentValue - amountIn;
 
-        // check if profit or loss
-        const profitOrLoss = currentValue - amountOut;
+        console.log("Current p&l: ", profitOrLoss.toString());
 
         if (profitOrLoss > 0) { // profit
             // if a postion is in profit, the insurance can not be claimed, return an error
@@ -69,15 +78,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         }
 
         // call the on chain claimInsurance function
-        const { txHash, receipt } = await claimInsurance(insuranceId, parseInt(chainId));
+        const { txHash, receipt, error } = await claimInsurance(insuranceId, parseInt(chainId));
 
         if (!txHash || !receipt || receipt.status !== 1) {
-            return NextResponse.json({ error: "Failed to claim insurance" }, { status: 500 });
+            return NextResponse.json(
+                { error: error ?? "Failed to claim insurance" },
+                { status: error ? 400 : 500 },
+            );
         }
 
         return NextResponse.json({ message: "Insurance claimed successfully", txHash, receipt: toSerializable(receipt) }, { status: 200 });
     } catch (error) {
-        console.log("Error fetching insurance details:", error);
-        return NextResponse.json({ error: "Failed to fetch insurance details" }, { status: 500 });
+        console.log("Error running insurance claim:", error);
+        return NextResponse.json({ error: "Failed to claim insurance" }, { status: 500 });
     }
 }

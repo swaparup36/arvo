@@ -1,6 +1,17 @@
+import { Spinner } from "@/components/dashboard/Spinner";
 import type { Position } from "@/types/dashboard";
 
-export function PositionsPanel({ positions }: { positions: Position[] }) {
+export function PositionsPanel({
+  positions,
+  selectedInsuranceId,
+  onSelect,
+  isLoading,
+}: {
+  positions: Position[];
+  selectedInsuranceId: string | null;
+  onSelect: (insuranceId: string | null) => void;
+  isLoading: boolean;
+}) {
   return (
     <div className="overflow-hidden rounded-[28px] border border-[#99e836]/5 bg-transparent p-5 shadow-none">
       <div className="mb-4 flex items-end justify-between gap-3">
@@ -9,16 +20,31 @@ export function PositionsPanel({ positions }: { positions: Position[] }) {
         </h2>
       </div>
 
-      {positions.length === 0 ? (
+      {isLoading ? (
+        <Spinner label="Loading positions..." />
+      ) : positions.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[#99e836]/15 bg-transparent p-6 text-center text-sm text-slate-400">
           No open positions for this vault yet.
         </div>
       ) : (
         <div className="space-y-4">
-          {positions.map((position) => (
-            <div
+          {positions.map((position) => {
+            const selected =
+              position.insuranceId !== null &&
+              position.insuranceId === selectedInsuranceId;
+
+            return (
+            <button
               key={position.id}
-              className="rounded-2xl border border-[#99e836]/10 bg-transparent p-3"
+              type="button"
+              onClick={() =>
+                onSelect(selected ? null : position.insuranceId)
+              }
+              className={`w-full rounded-2xl border bg-transparent p-3 text-left transition ${
+                selected
+                  ? "border-[#99e836]/60 bg-[#99e836]/5"
+                  : "border-[#99e836]/10 hover:border-[#99e836]/30"
+              }`}
             >
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -27,6 +53,27 @@ export function PositionsPanel({ positions }: { positions: Position[] }) {
                   </p>
                   <p className="text-xs text-slate-400">
                     In {position.amountIn} · Out {position.amountOut}
+                  </p>
+                  <p className="mt-1 text-xs">
+                    <span className="text-slate-500">P/L </span>
+                    {position.pnl === null ? (
+                      <span className="text-slate-500" title="No routable liquidity to price this pair">
+                        unpriced
+                      </span>
+                    ) : (
+                      <span
+                        className={
+                          (position.pnlPercent ?? 0) < 0
+                            ? "text-red-300"
+                            : "text-emerald-300"
+                        }
+                      >
+                        {position.pnl}
+                        {position.pnlPercent === null
+                          ? ""
+                          : ` (${position.pnlPercent > 0 ? "+" : ""}${position.pnlPercent.toFixed(2)}%)`}
+                      </span>
+                    )}
                   </p>
                 </div>
                 <div className="text-right">
@@ -42,8 +89,9 @@ export function PositionsPanel({ positions }: { positions: Position[] }) {
                   <p className="text-xs text-slate-500">{position.openedAt}</p>
                 </div>
               </div>
-            </div>
-          ))}
+            </button>
+            );
+          })}
         </div>
       )}
     </div>

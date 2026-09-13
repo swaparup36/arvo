@@ -26,7 +26,9 @@ const schema = z.object({
   UNISWAP_API_BASE_URL: z
     .string()
     .default("https://trade-api.gateway.uniswap.org/v1"),
-  UNISWAP_API_KEY: z.string().default(""),
+  UNISWAP_API_KEY_1: z.string().default(""),
+  UNISWAP_API_KEY_2: z.string().default(""),
+  UNISWAP_API_KEY_3: z.string().default(""),
   OWNER_ADDRESS: z
     .string()
     .default("0x0000000000000000000000000000000000000000"),

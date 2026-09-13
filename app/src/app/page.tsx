@@ -13,15 +13,21 @@ import { PositionsPanel } from "@/components/dashboard/PortfolioPanel";
 import { Tooltip } from "@/components/dashboard/Tooltip";
 import { RiskMonitor } from "@/components/dashboard/RiskMonitor";
 import { ScrollReveal } from "@/components/dashboard/ScrollReveal";
+import { Toast, type ToastMessage } from "@/components/dashboard/Toast";
 import { StatCard, type StatTone } from "@/components/dashboard/StatCard";
 import { TradeIntentsPanel } from "@/components/dashboard/TradeIntentsPanel";
 import { VaultOverview } from "@/components/dashboard/VaultOverview";
 import { HomePage } from "@/components/home/HomePage";
 import { useUserVaults } from "@/hooks/useUserVaults";
-import { clearAuthToken, useWalletAuth } from "@/hooks/useWalletAuth";
+import {
+  clearAuthToken,
+  getAuthToken,
+  useWalletAuth,
+} from "@/hooks/useWalletAuth";
 import {
   chainIdMap,
   chainOptions,
+  formatAmountForDisplay,
   tokenAddressesByChain,
   tokenDecimals,
 } from "@/lib/dashboard-data";
@@ -204,6 +210,14 @@ function getSupportedAssetsForChain(chain: string): string[] {
   );
 }
 
+function toBigInt(rawAmount: unknown): bigint {
+  try {
+    return typeof rawAmount === "bigint" ? rawAmount : BigInt(String(rawAmount));
+  } catch {
+    return BigInt(0);
+  }
+}
+
 function formatTokenAmount(rawAmount: unknown, symbol: string): string {
   try {
     const decimals = tokenDecimals[symbol] ?? 18;
@@ -238,6 +252,17 @@ export default function Home() {
   const [tradeIntents, setTradeIntents] = useState<TradeIntent[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [insurance, setInsurance] = useState<InsuranceItem[]>([]);
+  // insurance id links a policy to its position; one id highlights both panels
+  const [selectedInsuranceId, setSelectedInsuranceId] = useState<string | null>(
+    null,
+  );
+  const [pendingInsuranceId, setPendingInsuranceId] = useState<string | null>(
+    null,
+  );
+  // bumped after an on-chain action so the dashboard refetches
+  const [dashboardRefreshKey, setDashboardRefreshKey] = useState(0);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [isDashboardLoading, setIsDashboardLoading] = useState<boolean>(false);
   const [vaultAction, setVaultAction] = useState<"deposit" | "withdraw">(
     "deposit",
   );
@@ -493,6 +518,11 @@ export default function Home() {
     const activeAgentAddress = agents[0]?.address ?? "";
 
     const fetchDashboardData = async () => {
+      let mappedPositions: Position[] = [];
+      let insuranceItems: InsuranceItem[] = [];
+
+      setIsDashboardLoading(true);
+
       try {
         const [tradeRes, positionRes, insuranceRes] =
           await Promise.allSettled([
@@ -620,17 +650,18 @@ export default function Home() {
           const data = (await positionRes.value.json()) as {
             positions?: Array<{
               id?: string;
+              insuranceId?: string | null;
               tokenInAddress?: string;
               tokenOutAddress?: string;
               amountIn?: string | number;
               amountOut?: string | number;
               isActive?: boolean;
               createdAt?: string | number;
+              currentValue?: string | null;
             }>;
           };
 
-          setPositions(
-            (data.positions ?? []).map((item) => {
+          mappedPositions = (data.positions ?? []).map((item) => {
               const tokenInSymbol = resolveTokenSymbol(
                 selectedChain,
                 item.tokenInAddress,
@@ -640,24 +671,38 @@ export default function Home() {
                 item.tokenOutAddress,
               );
 
+              // both sides are tokenIn units, so the difference is the P/L
+              const spent = toBigInt(item.amountIn);
+              const worth =
+                item.currentValue == null ? null : toBigInt(item.currentValue);
+              const change = worth === null ? null : worth - spent;
+
               return {
                 id: item.id ?? `${item.tokenInAddress}-${item.createdAt}`,
+                insuranceId: item.insuranceId ?? null,
                 pair: `${tokenInSymbol} → ${tokenOutSymbol}`,
                 amountIn: formatTokenAmount(item.amountIn, tokenInSymbol),
                 amountOut: formatTokenAmount(item.amountOut, tokenOutSymbol),
                 status: item.isActive ? "Active" : "Closed",
                 openedAt: formatOnChainTimestamp(item.createdAt),
+                pnl:
+                  change === null
+                    ? null
+                    : `${change > BigInt(0) ? "+" : ""}${formatTokenAmount(change, tokenInSymbol)}`,
+                pnlPercent:
+                  change === null || spent === BigInt(0)
+                    ? null
+                    : Number((change * BigInt(10000)) / spent) / 100,
               } satisfies Position;
-            }),
-          );
-        } else {
-          setPositions([]);
+          });
         }
 
         if (insuranceRes.status === "fulfilled" && insuranceRes.value.ok) {
           const data = (await insuranceRes.value.json()) as {
             insurances?: Array<{
               id?: string;
+              tradeIntentId?: string;
+              positionId?: string | null;
               premium?: string | number;
               coverage?: string | number;
               coverageDuration?: string | number;
@@ -666,27 +711,33 @@ export default function Home() {
             }>;
           };
 
-          setInsurance(
-            (data.insurances ?? []).map((item) => ({
+          insuranceItems = (data.insurances ?? []).map((item) => ({
               id: item.id ?? String(item.createdAt ?? Math.random()),
-              premium: String(item.premium ?? "0"),
+              tradeIntentId: item.tradeIntentId ?? "",
+              positionId: item.positionId ?? null,
+              premium: formatTokenAmount(item.premium, "USDC"),
               coverage: `${item.coverage ?? "0"}%`,
               duration: formatDurationSeconds(item.coverageDuration),
               valid: Boolean(item.valid),
               createdAt: formatOnChainTimestamp(item.createdAt),
-            })),
-          );
-        } else {
-          setInsurance([]);
+          }));
         }
+
+        // spent and expired policies, and the positions behind them, are
+        // already filtered out server side
+        setInsurance(insuranceItems);
+        setPositions(mappedPositions);
       } catch (error) {
         console.error("Failed to load dashboard data", error);
+      } finally {
+        setIsDashboardLoading(false);
       }
     };
 
     fetchDashboardData();
   }, [
     agents,
+    dashboardRefreshKey,
     selectedAgentAddress,
     selectedChain,
     selectedChainId,
@@ -694,10 +745,87 @@ export default function Home() {
     walletAddress,
   ]);
 
+  const handleInsuranceAction = async (
+    item: InsuranceItem,
+    action: "claim" | "invalidate",
+  ) => {
+    const token = getAuthToken(walletAddress);
+
+    if (!token) {
+      setToast({
+        tone: "error",
+        message: "Connect and sign in with your wallet first.",
+      });
+      return;
+    }
+
+    setPendingInsuranceId(item.id);
+    setToast(null);
+
+    try {
+      const response = await fetch(
+        `/api/insurances/${action}/${encodeURIComponent(item.id)}?chainId=${selectedChainId}`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      const data = (await response.json()) as {
+        txHash?: string;
+        error?: string;
+      };
+
+      if (response.status === 401) {
+        // cached JWT went stale; drop it so the next wallet action re-signs
+        clearAuthToken();
+        setToast({
+          tone: "error",
+          message: "Session expired — reconnect your wallet to sign in again.",
+        });
+        return;
+      }
+
+      if (!response.ok) {
+        setToast({
+          tone: "error",
+          message: data.error ?? `Failed to ${action} insurance.`,
+        });
+        return;
+      }
+
+      setToast({
+        tone: "success",
+        message: `Insurance ${action === "claim" ? "claimed" : "invalidated"} (tx ${data.txHash}).`,
+      });
+
+      // remove the insurance and its position from the dashboard, and bump the refresh key so the server refetches
+      setInsurance((current) => current.filter((entry) => entry.id !== item.id));
+      setPositions((current) =>
+        current.filter((position) => position.insuranceId !== item.id),
+      );
+      setSelectedInsuranceId((current) =>
+        current === item.id ? null : current,
+      );
+      setDashboardRefreshKey((key) => key + 1);
+    } catch (error) {
+      console.error(`Failed to ${action} insurance`, error);
+      setToast({ tone: "error", message: `Failed to ${action} insurance.` });
+    } finally {
+      setPendingInsuranceId(null);
+    }
+  };
+
   const handleChainChange = (nextChain: string) => {
     setSelectedChain(nextChain);
     setSelectedVaultId(null);
     setVaultPage(1);
+  };
+
+  // vault flows keep their inline status line and also raise a toast
+  const notify = (tone: ToastMessage["tone"], message: string) => {
+    setTransactionStatus(message);
+    setToast({ tone, message });
   };
 
   const handleWalletDisconnect = () => {
@@ -714,7 +842,7 @@ export default function Home() {
     }
 
     if (!openConnectModal) {
-      setTransactionStatus("Wallet connection is unavailable.");
+      notify("error", "Wallet connection is unavailable.");
       return;
     }
 
@@ -733,14 +861,14 @@ export default function Home() {
 
   const handleVaultAction = async () => {
     if (!selectedVault) {
-      setTransactionStatus("Select a vault to continue.");
+      notify("error", "Select a vault to continue.");
       return;
     }
 
     const requestedAmount = Number(amount);
 
     if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
-      setTransactionStatus("Enter a valid amount.");
+      notify("error", "Enter a valid amount.");
       return;
     }
 
@@ -751,13 +879,15 @@ export default function Home() {
       const availableInVault = Number(vaultAsset?.availableBalance ?? "0");
 
       if (!vaultAsset || requestedAmount > availableInVault) {
-        setTransactionStatus(
+        notify(
+          "error",
           `Insufficient ${selectedAsset} balance in this vault (available: ${availableInVault}).`,
         );
         return;
       }
     } else if (requestedAmount > Number(walletTokenBalance)) {
-      setTransactionStatus(
+      notify(
+        "error",
         `Insufficient ${selectedAsset} balance in your wallet (available: ${walletTokenBalance}).`,
       );
       return;
@@ -765,6 +895,7 @@ export default function Home() {
 
     setIsSubmitting(true);
     setTransactionStatus("");
+    setToast(null);
 
     try {
       await executeVaultAction(
@@ -780,13 +911,12 @@ export default function Home() {
         loadWalletTokenBalance(),
       ]);
 
-      setTransactionStatus(
+      notify(
+        "success",
         `${vaultAction === "deposit" ? "Deposit" : "Withdraw"} executed successfully.`,
       );
     } catch (error) {
-      setTransactionStatus(
-        getFriendlyErrorMessage(error, "Vault transaction failed."),
-      );
+      notify("error", getFriendlyErrorMessage(error, "Vault transaction failed."));
     } finally {
       setIsSubmitting(false);
     }
@@ -804,11 +934,13 @@ export default function Home() {
 
     setIsSubmitting(true);
     setTransactionStatus("");
+    setToast(null);
 
     try {
       const result = await createVaultOnFactory(trimmedName, selectedChain);
 
-      setTransactionStatus(
+      notify(
+        "success",
         result.vaultAddress !== "0x0000000000000000000000000000000000000000"
           ? `Vault created successfully: ${result.vaultAddress.slice(0, 6)}...${result.vaultAddress.slice(-4)}`
           : "Vault created successfully.",
@@ -831,9 +963,7 @@ export default function Home() {
         setVaults((currentVaults) => [nextVault, ...currentVaults]);
       }
     } catch (error) {
-      setTransactionStatus(
-        getFriendlyErrorMessage(error, "Vault creation failed."),
-      );
+      notify("error", getFriendlyErrorMessage(error, "Vault creation failed."));
     } finally {
       setIsSubmitting(false);
     }
@@ -1006,7 +1136,12 @@ export default function Home() {
               isSubmitting={isSubmitting}
             />
 
-            <PositionsPanel positions={positions} />
+            <PositionsPanel
+              positions={positions}
+              selectedInsuranceId={selectedInsuranceId}
+              onSelect={setSelectedInsuranceId}
+              isLoading={isDashboardLoading}
+            />
           </div>
         </ScrollReveal>
 
@@ -1046,10 +1181,10 @@ export default function Home() {
                       </Tooltip>
                     </div>
                     <Tooltip
-                      label={`Current ${token.token} held by this vault (available + locked)`}
+                      label={`${token.totalDeposited} ${token.token} held by this vault (available + locked)`}
                     >
-                      <p className="font-medium text-[#edf5ee]">
-                        {token.totalDeposited}
+                      <p className="truncate font-medium text-[#edf5ee]">
+                        {formatAmountForDisplay(token.totalDeposited)}
                       </p>
                     </Tooltip>
                   </div>
@@ -1161,11 +1296,18 @@ export default function Home() {
           </DashboardCard>
 
           <DashboardCard
-            title="Agent insurance"
+            title="Trade insurances"
             className="scroll-mt-24"
             titleClassName="text-[clamp(1.8rem,2.2vw,2.8rem)] font-medium leading-[0.8] text-[#99e836]"
           >
-            <RiskMonitor insurance={insurance} />
+            <RiskMonitor
+              insurance={insurance}
+              selectedInsuranceId={selectedInsuranceId}
+              onSelect={setSelectedInsuranceId}
+              onAction={handleInsuranceAction}
+              pendingInsuranceId={pendingInsuranceId}
+              isLoading={isDashboardLoading}
+            />
           </DashboardCard>
         </ScrollReveal>
 
@@ -1188,6 +1330,8 @@ export default function Home() {
           </div>
         </footer>
       </div>
+
+      <Toast toast={toast} onDismiss={() => setToast(null)} />
 
       <NewVaultDialog
         isOpen={isNewVaultDialogOpen}

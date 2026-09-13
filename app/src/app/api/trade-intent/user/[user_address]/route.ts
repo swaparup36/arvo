@@ -59,7 +59,7 @@ export async function GET(
 
     const onChainTradeIntents = [];
     for (const intent of tradeIntents) {
-      console.log("Checking on-chain trade intent for:", intent.id, "on chainId:", intent.chainId);
+      // console.log("Checking on-chain trade intent for:", intent.id, "on chainId:", intent.chainId);
       try {
         const onChainIntent = await getTradeIntent(intent.id, intent.chainId);
         if (onChainIntent) onChainTradeIntents.push(intent);

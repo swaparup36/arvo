@@ -3,6 +3,43 @@ import { GetQuoteParams, UniswapQuoteResponse, UniswapSwapResponse, UniswapSwapT
 
 const UNISWAP_ROUTER_VERSION = "2.0";
 
+const API_KEYS = [
+    env.UNISWAP_API_KEY_1,
+    env.UNISWAP_API_KEY_2,
+    env.UNISWAP_API_KEY_3,
+].filter((key) => key.length > 0);
+
+let keyCursor = 0;
+
+// Helper function to make POST requests to the Uniswap API with rate limiting handling
+async function uniswapPost(path: string, body: unknown): Promise<Response | null> {
+    const attempts = Math.max(API_KEYS.length, 1);
+
+    for (let attempt = 0; attempt < attempts; attempt++) {
+        const apiKey = API_KEYS[keyCursor++ % API_KEYS.length] ?? "";
+
+        const response = await fetch(`${env.UNISWAP_API_BASE_URL}${path}`, {
+            method: "POST",
+            headers: {
+                "x-api-key": apiKey,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "x-universal-router-version": UNISWAP_ROUTER_VERSION,
+                "x-permit2-disabled": "true",
+            },
+            body: JSON.stringify(body),
+        });
+
+        if (response.status !== 429) {
+            return response;
+        }
+
+        console.warn(`Uniswap ${path} rate limited, retrying with the next api key`);
+    }
+
+    return null;
+}
+
 export const CHAIN_TO_UNISWAP_PROXY: Record<number, string> = {
     1: "0x0000000085E102724e78eCd2F45DC9cA239Affad",
     11155111: "0x0000000085E102724e78eCd2F45DC9cA239Affad"
@@ -11,33 +48,25 @@ export const CHAIN_TO_UNISWAP_PROXY: Record<number, string> = {
 // get quote for swap from uniswap
 export async function getQuote(params: GetQuoteParams): Promise<UniswapQuoteResponse | null> {
     try {
-        const response = await fetch(
-            `${env.UNISWAP_API_BASE_URL}/quote`,
-            {
-                method: "POST",
-                headers: {
-                    "x-api-key": env.UNISWAP_API_KEY,
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                    "x-universal-router-version": UNISWAP_ROUTER_VERSION,
-                    "x-permit2-disabled": "true",
-                },
-                body: JSON.stringify({
-                    "type": "EXACT_INPUT",
-                    "amount": params.amountIn,
-                    "tokenInChainId": params.chainId,
-                    "tokenOutChainId": params.chainId,
-                    "tokenIn": params.tokenIn,
-                    "tokenOut": params.tokenOut,
-                    "swapper": params.vaultAddress,
-                    "protocols": [
-                        "V2",
-                        "V3",
-                        "V4",
-                    ]
-                }),
-            }
-        );
+        const response = await uniswapPost("/quote", {
+            "type": "EXACT_INPUT",
+            "amount": params.amountIn,
+            "tokenInChainId": params.chainId,
+            "tokenOutChainId": params.chainId,
+            "tokenIn": params.tokenIn,
+            "tokenOut": params.tokenOut,
+            "swapper": params.vaultAddress,
+            "protocols": [
+                "V2",
+                "V3",
+                "V4",
+            ]
+        });
+
+        if (!response) {
+            console.error("Uniswap /quote rate limited on every api key");
+            return null;
+        }
 
         if (!response.ok) {
             const error = await response.text();
@@ -62,22 +91,12 @@ export async function getQuote(params: GetQuoteParams): Promise<UniswapQuoteResp
 // get call data for swap on uniswap
 export async function getSwapCallData(quote: any): Promise<UniswapSwapTransaction | null> {
     try {
-        const response = await fetch(
-            `${env.UNISWAP_API_BASE_URL}/swap`,
-            {
-                method: "POST",
-                headers: {
-                    "x-api-key": env.UNISWAP_API_KEY,
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                    "x-universal-router-version": UNISWAP_ROUTER_VERSION,
-                    "x-permit2-disabled": "true",
-                },
-                body: JSON.stringify({
-                    quote,
-                }),
-            }
-        );
+        const response = await uniswapPost("/swap", { quote });
+
+        if (!response) {
+            console.error("Uniswap /swap rate limited on every api key");
+            return null;
+        }
 
         if (!response.ok) {
             const error = await response.text();

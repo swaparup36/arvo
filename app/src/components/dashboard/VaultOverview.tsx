@@ -1,4 +1,5 @@
 import { Tooltip } from "@/components/dashboard/Tooltip";
+import { formatAmountForDisplay } from "@/lib/dashboard-data";
 import type { Vault } from "@/types/dashboard";
 
 export function VaultOverview({
@@ -114,10 +115,11 @@ export function VaultOverview({
               </div>
 
               <Tooltip
-                label={`Native ${vault.native.token} held by this vault (available + locked)`}
+                label={`${vault.native.totalDeposited} ${vault.native.token} held by this vault (available + locked)`}
               >
-                <div className="mt-4 text-2xl font-semibold text-[#edf5ee]">
-                  {vault.native.totalDeposited} {vault.native.token}
+                <div className="mt-4 truncate text-2xl font-semibold text-[#edf5ee]">
+                  {formatAmountForDisplay(vault.native.totalDeposited)}{" "}
+                  {vault.native.token}
                 </div>
               </Tooltip>
 
@@ -125,7 +127,7 @@ export function VaultOverview({
                 {visibleAssets.map((asset, index) => (
                   <div
                     key={`${vault.id}-${asset.token}-${index}`}
-                    className="rounded-xl border border-[#99e836]/10 bg-transparent p-2.5"
+                    className="min-w-0 rounded-xl border border-[#99e836]/10 bg-transparent p-2.5"
                   >
                     <div className="flex items-center justify-between text-[10px] uppercase text-slate-400">
                       <span>{asset.token}</span>
@@ -144,10 +146,10 @@ export function VaultOverview({
                       </Tooltip>
                     </div>
                     <Tooltip
-                      label={`Current ${asset.token} held by this vault (available + locked)`}
+                      label={`${asset.totalDeposited} ${asset.token} held by this vault (available + locked)`}
                     >
-                      <div className="mt-2 text-base font-medium text-[#edf5ee]">
-                        {asset.totalDeposited}
+                      <div className="mt-2 truncate text-base font-medium text-[#edf5ee]">
+                        {formatAmountForDisplay(asset.totalDeposited)}
                       </div>
                     </Tooltip>
                   </div>

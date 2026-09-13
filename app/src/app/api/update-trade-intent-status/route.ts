@@ -31,6 +31,7 @@ export async function POST(req: Request) {
 
         // get the trade intent id from the hash from the redis
         const intentId = await redis.get(`trade_intent_hash:${intentidhash.toLowerCase()}`);
+        console.log("Retrieved intent ID from Redis:", { intentidhash, intentId });
 
         if (!intentId) {
             return NextResponse.json(
@@ -62,7 +63,7 @@ export async function POST(req: Request) {
         });
 
         // only drop the hash once the update landed, otherwise a failed update is unretryable
-        await redis.del(`trade_intent_hash:${intentidhash.toLowerCase()}`);
+        // await redis.del(`trade_intent_hash:${intentidhash.toLowerCase()}`);
 
         return NextResponse.json(
             {

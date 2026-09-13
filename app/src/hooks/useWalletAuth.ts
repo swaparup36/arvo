@@ -17,10 +17,24 @@ function readStoredAuth(): StoredAuth | null {
   }
 }
 
+// Returns true if the JWT is expired or invalid, false otherwise
+function isExpired(token: string) {
+  try {
+    const { exp } = JSON.parse(atob(token.split(".")[1])) as { exp?: number };
+    return typeof exp === "number" && exp * 1000 <= Date.now();
+  } catch {
+    return true;
+  }
+}
+
 export function getAuthToken(address?: string) {
   const stored = readStoredAuth();
   if (!stored) return null;
   if (address && stored.address !== address.toLowerCase()) return null;
+  if (isExpired(stored.token)) {
+    clearAuthToken();
+    return null;
+  }
   return stored.token;
 }
 
